@@ -1,1 +1,4 @@
 playwright
+numpy
+pandas
+sqlalchemy
