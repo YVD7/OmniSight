@@ -1,0 +1,36 @@
+CREATE TABLE builds (
+    id SERIAL PRIMARY KEY,
+    repo TEXT NOT NULL,
+    commit_sha TEXT NOT NULL,
+    branch TEXT NOT NULL,
+    staging_url TEXT,
+    status TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE anomalies (
+    id SERIAL PRIMARY KEY,
+    build_id INTEGER NOT NULL REFERENCES builds(id) ON DELETE CASCADE,
+    selector TEXT NOT NULL,
+    type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    screenshot_path TEXT
+);
+
+CREATE TABLE fix_attempts (
+    id SERIAL PRIMARY KEY,
+    anomaly_id INTEGER NOT NULL REFERENCES anomalies(id) ON DELETE CASCADE,
+    attempt_no INTEGER NOT NULL,
+    patch_diff TEXT,
+    verified BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE pull_requests (
+    id SERIAL PRIMARY KEY,
+    build_id INTEGER NOT NULL REFERENCES builds(id) ON DELETE CASCADE,
+    pr_number INTEGER NOT NULL,
+    pr_url TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    reviewed_by TEXT
+);
