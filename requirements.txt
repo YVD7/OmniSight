@@ -5,3 +5,5 @@ pandas
 matplotlib
 pydantic
 sqlalchemy
+fastapi[standard]
+psycopg2-binary
