@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — Trailhead</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="index.html" class="brand"><span class="mark"></span>Trailhead</a>
+    <nav class="main-nav">
+      <a href="index.html">Shop</a>
+      <a href="cart.html">Cart</a>
+      <a href="checkout.html" class="active">Checkout</a>
+    </nav>
+    <a href="cart.html" class="cart-link">Cart <span class="cart-count" id="cart-count">0</span></a>
+  </div>
+</header>
+
+<main>
+  <h2 class="section-title">Checkout</h2>
+  <div class="checkout-layout">
+    <div class="form-card">
+      <h3>Shipping details</h3>
+      <div class="hint">This is a mock checkout — no real payment is processed.</div>
+      <form id="checkout-form" onsubmit="return placeOrder(event)">
+        <div class="form-row">
+          <div>
+            <label>First name</label>
+            <input required placeholder="Jamie">
+          </div>
+          <div>
+            <label>Last name</label>
+            <input required placeholder="Rivera">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div>
+            <label>Email</label>
+            <input required type="email" placeholder="jamie@example.com">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div>
+            <label>Shipping address</label>
+            <input required placeholder="123 Ridge Trail Rd">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>City</label>
+            <input required placeholder="Boulder">
+          </div>
+          <div>
+            <label>ZIP code</label>
+            <input required placeholder="80301">
+          </div>
+        </div>
+
+        <!-- Planted fixture bug lives on .order-action-panel (see styles.css) -->
+        <div class="order-action-panel">
+          <div class="place-order-row">
+            <button type="submit" class="btn btn-primary btn-block">Place order</button>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;white-space:nowrap">
+              <input type="checkbox" style="width:auto" checked> Save details
+            </label>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="summary-card">
+      <h3 style="margin-bottom:16px">Order summary</h3>
+      <div id="summary-lines"></div>
+      <div class="summary-row total" id="summary-total"><span>Total</span><span>$0</span></div>
+    </div>
+  </div>
+</main>
+
+<footer>Trailhead — mock storefront for QA automation testing. Not a real store.</footer>
+
+<script src="app.js"></script>
+<script>
+  function renderSummary() {
+    const cart = getCart();
+    const lines = document.getElementById("summary-lines");
+    lines.innerHTML = Object.entries(cart).map(([id, qty]) => {
+      const p = PRODUCTS.find(p => p.id === id);
+      if (!p) return "";
+      return `<div class="summary-row"><span>${p.name} × ${qty}</span><span>$${p.price * qty}</span></div>`;
+    }).join("");
+    const subtotal = cartTotal();
+    const shipping = subtotal > 0 ? 12 : 0;
+    document.getElementById("summary-total").innerHTML =
+      `<span>Total</span><span>$${subtotal + shipping}</span>`;
+  }
+
+  function placeOrder(e) {
+    e.preventDefault();
+    localStorage.removeItem("trailhead_cart");
+    updateCartCount();
+    showToast("Order placed — thanks!");
+    setTimeout(() => { window.location.href = "index.html"; }, 1400);
+    return false;
+  }
+
+  renderSummary();
+</script>
+</body>
+</html>

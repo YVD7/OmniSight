@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cart — Trailhead</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="index.html" class="brand"><span class="mark"></span>Trailhead</a>
+    <nav class="main-nav">
+      <a href="index.html">Shop</a>
+      <a href="cart.html" class="active">Cart</a>
+      <a href="checkout.html">Checkout</a>
+    </nav>
+    <a href="cart.html" class="cart-link">Cart <span class="cart-count" id="cart-count">0</span></a>
+  </div>
+</header>
+
+<main>
+  <h2 class="section-title">Your cart</h2>
+  <div id="cart-root"></div>
+</main>
+
+<footer>Trailhead — mock storefront for QA automation testing. Not a real store.</footer>
+
+<script src="app.js"></script>
+<script>
+  function renderCart() {
+    const root = document.getElementById("cart-root");
+    const cart = getCart();
+    const entries = Object.entries(cart);
+
+    if (entries.length === 0) {
+      root.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🎒</div>
+          <p>Your cart is empty.</p>
+          <p style="margin-top:14px"><a href="index.html" class="btn btn-secondary">Browse gear</a></p>
+        </div>`;
+      return;
+    }
+
+    const itemsHtml = entries.map(([id, qty]) => {
+      const p = PRODUCTS.find(p => p.id === id);
+      if (!p) return "";
+      return `
+        <div class="cart-item">
+          <div class="art" style="background:${p.color}">${p.icon}</div>
+          <div class="meta">
+            <h4>${p.name}</h4>
+            <div class="unit">$${p.price} each</div>
+          </div>
+          <div class="qty-control">
+            <button onclick="setQty('${id}', ${qty - 1})">−</button>
+            <span>${qty}</span>
+            <button onclick="setQty('${id}', ${qty + 1})">+</button>
+          </div>
+          <span class="remove-link" onclick="removeFromCart('${id}')">Remove</span>
+        </div>`;
+    }).join("");
+
+    const subtotal = cartTotal();
+    const shipping = subtotal > 0 ? 12 : 0;
+    const total = subtotal + shipping;
+
+    root.innerHTML = `
+      <div class="cart-layout">
+        <div>${itemsHtml}</div>
+        <div class="summary-card">
+          <h3 style="margin-bottom:16px">Order summary</h3>
+          <div class="summary-row"><span>Subtotal</span><span>$${subtotal}</span></div>
+          <div class="summary-row"><span>Shipping</span><span>$${shipping}</span></div>
+          <div class="summary-row total"><span>Total</span><span>$${total}</span></div>
+          <a href="checkout.html" class="btn btn-primary btn-block" style="display:block;text-align:center;margin-top:16px">Proceed to checkout</a>
+        </div>
+      </div>`;
+  }
+
+  renderCart();
+</script>
+</body>
+</html>
