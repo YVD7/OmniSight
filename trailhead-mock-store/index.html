@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trailhead — Gear for the trail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="index.html" class="brand"><span class="mark"></span>Trailhead</a>
+    <nav class="main-nav">
+      <a href="index.html" class="active">Shop</a>
+      <a href="cart.html">Cart</a>
+      <a href="checkout.html">Checkout</a>
+    </nav>
+    <a href="cart.html" class="cart-link">Cart <span class="cart-count" id="cart-count">0</span></a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">New season gear</div>
+    <h1>Everything you need for the next ridge line.</h1>
+    <p>Field-tested packs, shelters, and cook kits — built for three-day pushes and long weekends alike.</p>
+  </div>
+</section>
+
+<main>
+  <h2 class="section-title">Shop all gear</h2>
+  <div class="grid" id="product-grid"></div>
+</main>
+
+<footer>Trailhead — mock storefront for QA automation testing. Not a real store.</footer>
+
+<script src="app.js"></script>
+<script>
+  const grid = document.getElementById("product-grid");
+  grid.innerHTML = PRODUCTS.map(p => `
+    <div class="card">
+      <div class="card-art" style="background:${p.color}">${p.icon}</div>
+      <div class="card-body">
+        <div class="card-tag">${p.tag}</div>
+        <h3>${p.name}</h3>
+        <div class="desc">Trail-ready, weather-tested, backed by our 2-year warranty.</div>
+        <div class="card-footer">
+          <span class="price">$${p.price}</span>
+          <button class="btn btn-primary" onclick="addToCart('${p.id}')">Add to cart</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+</script>
+</body>
+</html>
