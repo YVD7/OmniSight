@@ -1,0 +1,71 @@
+name: Deploy OmniSight to Azure VM
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Azure VM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Azure VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          port: 22
+          script: |
+            echo "🚀 Starting Deployment on Azure VM..."
+            
+            # Navigate to application directory
+            mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/OmniSight
+            cd /home/${{ secrets.AZURE_VM_USERNAME }}/OmniSight
+
+            # Git pull latest changes
+            if [ -d ".git" ]; then
+              git fetch origin
+              git reset --hard origin/main || git reset --hard origin/master
+            else
+              git clone https://github.com/${{ github.repository }}.git .
+            fi
+
+            # Inject secrets into .env.secrets file (Note: GitHub Action Secrets must NOT start with GITHUB_)
+            cat << 'EOF' > .env.secrets
+            POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
+            POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
+            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+            AZURE_STORAGE_CONNECTION_STRING=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+            AZURE_STORAGE_ACCOUNT_NAME=${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
+            AZURE_STORAGE_ACCOUNT_KEY=${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
+            AZURE_STORAGE_CONTAINER_NAME=${{ secrets.AZURE_STORAGE_CONTAINER_NAME }}
+            GH_REPO_URL=${{ secrets.TARGET_REPO_URL }}
+            GH_TOKEN=${{ secrets.TARGET_TOKEN }}
+            GH_BRANCH=${{ secrets.TARGET_BRANCH }}
+            BASE_URL=${{ secrets.BASE_URL }}
+            EOF
+
+            # Copy to .env if needed
+            cp .env.secrets .env
+
+            # Build and restart containers using Docker Compose
+            echo "📦 Building and starting Docker containers..."
+            docker compose down || true
+            docker compose up -d --build
+
+            # Verify API health
+            echo "🔍 Verifying deployment health status..."
+            sleep 5
+            curl -f http://localhost:8000/api/status || (echo "⚠️ API Healthcheck failed!" && exit 1)
+
+            echo "✅ OmniSight successfully deployed to Azure VM!"
