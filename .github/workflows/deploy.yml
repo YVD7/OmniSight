@@ -26,6 +26,21 @@ jobs:
           script: |
             echo "🚀 Starting Deployment on Azure VM..."
             
+            # Check if Docker is installed on the Azure VM; install if missing
+            if ! command -v docker &> /dev/null; then
+              echo "🐳 Docker not found on Azure VM. Auto-installing Docker..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              sudo usermod -aG docker $USER || true
+              rm get-docker.sh
+            fi
+
+            # Check if Docker Compose plugin is installed
+            if ! docker compose version &> /dev/null; then
+              echo "🐳 Docker Compose plugin not found. Installing docker-compose-plugin..."
+              sudo apt-get update && sudo apt-get install -y docker-compose-plugin || true
+            fi
+
             # Navigate to application directory
             mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/OmniSight
             cd /home/${{ secrets.AZURE_VM_USERNAME }}/OmniSight
@@ -68,4 +83,4 @@ jobs:
             sleep 5
             curl -f http://localhost:8000/api/status || (echo "⚠️ API Healthcheck failed!" && exit 1)
 
-            echo "✅ OmniSight successfully deployed to Azure VM!"
+            echo "✅ OmniSight successfully deployed via Docker on Azure VM!"
