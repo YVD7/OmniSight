@@ -78,9 +78,23 @@ jobs:
             docker compose down || true
             docker compose up -d --build
 
-            # Verify API health
+            # Verify API health with retry loop
             echo "🔍 Verifying deployment health status..."
-            sleep 5
-            curl -f http://localhost:8000/api/status || (echo "⚠️ API Healthcheck failed!" && exit 1)
+            HEALTH_CHECK_PASSED=0
+            for i in {1..12}; do
+              if curl -s -f http://localhost:8000/api/status > /dev/null; then
+                HEALTH_CHECK_PASSED=1
+                echo "✅ API is online and responding at http://localhost:8000/api/status"
+                break
+              fi
+              echo "⏳ Waiting for API container to initialize (Attempt $i/12)..."
+              sleep 5
+            done
+
+            if [ $HEALTH_CHECK_PASSED -ne 1 ]; then
+              echo "❌ API Healthcheck failed after 60 seconds!"
+              docker compose logs --tail=50
+              exit 1
+            fi
 
             echo "✅ OmniSight successfully deployed via Docker on Azure VM!"
