@@ -317,8 +317,8 @@ input:focus { outline: 2px solid var(--rust); outline-offset: 1px; background: v
    This is the OmniSight Week 0 fixture bug referenced in the HLD.
    ============================================================ */
 .order-action-panel {
-  overflow: hidden;      /* clips content instead of wrapping */
-  max-height: 64px;      /* fine on desktop, too short on mobile once the row wraps */
+  overflow: visible;     /* fixed clipping issue on mobile */
+  max-height: none;      /* allows container to expand naturally when content wraps */
 }
 
 @media (max-width: 480px) {
