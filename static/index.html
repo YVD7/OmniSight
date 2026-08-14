@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniSight - VLM Agent Status Update & Orchestrator Dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👁️</text></svg>">
+</head>
+<body>
+
+  <!-- Top Header Bar -->
+  <header class="header">
+    <div class="logo-group">
+      <div class="logo-icon">👁️</div>
+      <div>
+        <div class="logo-title">OmniSight VLM Studio</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Visual Bug Detection & Automated CI/CD Remediation</div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <div class="status-badge-header">
+        <span class="pulse-dot"></span>
+        GATEWAY API ONLINE
+      </div>
+      <button onclick="refreshDashboardData()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.4rem 0.85rem; border-radius: 8px; font-size: 0.8rem; cursor: pointer; font-weight: 500;">
+        🔄 Refresh Status
+      </button>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- System Stats Cards Grid -->
+    <div class="stats-grid">
+      <div class="glass-card stat-card">
+        <div class="stat-icon purple">🤖</div>
+        <div class="stat-info">
+          <div class="label">VLM Agent Engine</div>
+          <div class="value" id="stat-vlm-status">LangGraph Multi-Agent</div>
+          <div class="subtext">6 Active Nodes (Playwright + GPT-4o)</div>
+        </div>
+      </div>
+
+      <div class="glass-card stat-card">
+        <div class="stat-icon cyan">🖥️</div>
+        <div class="stat-info">
+          <div class="label">Target VM Deployed Store</div>
+          <div class="value" id="stat-vm-url">Connected</div>
+          <div class="subtext" id="stat-vm-sub">trailhead-mock-store</div>
+        </div>
+      </div>
+
+      <div class="glass-card stat-card">
+        <div class="stat-icon emerald">🚀</div>
+        <div class="stat-info">
+          <div class="label">Target Git Branch</div>
+          <div class="value" id="stat-git-branch">dev</div>
+          <div class="subtext">Auto Push Enabled</div>
+        </div>
+      </div>
+
+      <div class="glass-card stat-card">
+        <div class="stat-icon amber">🛠️</div>
+        <div class="stat-info">
+          <div class="label">Recent Repairs</div>
+          <div class="value" id="stat-repairs-count">1 Fixed</div>
+          <div class="subtext">Mobile Clipping Resolved</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Grid: Control Form + Live Agent Pipeline -->
+    <div class="main-grid">
+
+      <!-- Left Column: Control Panel & Form -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <div class="glass-card" style="padding: 1.5rem;">
+          <div class="panel-title">
+            <span>⚡ Run VLM Repair Workflow</span>
+          </div>
+
+          <form id="orchestrator-form" onsubmit="handleTriggerOrchestrator(event)">
+            <div class="form-group">
+              <label for="input-base-url">Deployed VM Base URL</label>
+              <input type="text" id="input-base-url" class="input-field" placeholder="http://192.168.1.100:8080 or leave empty for auto local server">
+            </div>
+
+            <div class="form-group">
+              <label for="input-repo-url">GitHub Repository URL</label>
+              <input type="text" id="input-repo-url" class="input-field" placeholder="https://github.com/org/trailhead-mock-store.git">
+            </div>
+
+            <div class="form-group">
+              <label for="input-branch">Target Push Branch</label>
+              <input type="text" id="input-branch" class="input-field" value="dev">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div class="form-group">
+                <label for="input-iterations">Max Iterations</label>
+                <input type="number" id="input-iterations" class="input-field" value="3" min="1" max="5">
+              </div>
+              <div class="form-group">
+                <label for="input-target-dir">Local Codebase</label>
+                <input type="text" id="input-target-dir" class="input-field" value="trailhead-mock-store" readonly>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-trigger" class="btn-primary" style="margin-top: 0.5rem;">
+              <span>🚀 Execute VLM Orchestrator</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- System Credentials / Config Card -->
+        <div class="glass-card" style="padding: 1.25rem;">
+          <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-muted);">
+            📋 Active Environment Configuration (.env)
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-dim); display: flex; flex-direction: column; gap: 0.35rem;">
+            <div>BASE_URL = <span id="env-base-url" style="color: var(--accent-cyan);">Auto-Detect</span></div>
+            <div>GITHUB_REPO_URL = <span id="env-repo-url" style="color: var(--accent-cyan);">Loaded from .env</span></div>
+            <div>GITHUB_BRANCH = <span id="env-branch" style="color: var(--accent-emerald);">dev</span></div>
+            <div>VLM_ENGINE = <span style="color: var(--primary);">GPT-4o / Playwright Vision</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Live Agent Nodes Pipeline Progress -->
+      <div class="glass-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+        <div class="panel-title">
+          <span>🤖 LangGraph Multi-Agent Status Pipeline</span>
+          <span id="overall-status-badge" class="step-badge badge-idle" style="margin-left: auto;">STANDBY</span>
+        </div>
+
+        <div class="pipeline-container">
+
+          <!-- Node 1 -->
+          <div class="pipeline-step" id="step-node-1">
+            <div class="step-info">
+              <div class="step-num">1</div>
+              <div>
+                <div class="step-title">📸 Node 1: Capture Screenshots Agent</div>
+                <div class="step-desc">Playwright captures UI screenshots across Desktop (1440x900), Tablet (768x1024), Mobile (390x844)</div>
+              </div>
+            </div>
+            <span class="step-badge badge-idle" id="badge-node-1">IDLE</span>
+          </div>
+
+          <!-- Node 2 -->
+          <div class="pipeline-step" id="step-node-2">
+            <div class="step-info">
+              <div class="step-num">2</div>
+              <div>
+                <div class="step-title">👁️ Node 2: VLM Visual Inspector Agent</div>
+                <div class="step-desc">Evaluates image bounding boxes & VLM multimodal vision payload for UI button clipping & overflow</div>
+              </div>
+            </div>
+            <span class="step-badge badge-idle" id="badge-node-2">IDLE</span>
+          </div>
+
+          <!-- Node 3 -->
+          <div class="pipeline-step" id="step-node-3">
+            <div class="step-info">
+              <div class="step-num">3</div>
+              <div>
+                <div class="step-title">🔍 Node 3: Code Analyzer Agent</div>
+                <div class="step-desc">Maps visual defect bounding box to styles.css `.order-action-panel` root cause</div>
+              </div>
+            </div>
+            <span class="step-badge badge-idle" id="badge-node-3">IDLE</span>
+          </div>
+
+          <!-- Node 4 -->
+          <div class="pipeline-step" id="step-node-4">
+            <div class="step-info">
+              <div class="step-num">4</div>
+              <div>
+                <div class="step-title">🛠️ Node 4: Code Repairer Agent</div>
+                <div class="step-desc">Patches styles.css (`max-height: none`, `overflow: visible`)</div>
+              </div>
+            </div>
+            <span class="step-badge badge-idle" id="badge-node-4">IDLE</span>
+          </div>
+
+          <!-- Node 5 -->
+          <div class="pipeline-step" id="step-node-5">
+            <div class="step-info">
+              <div class="step-num">5</div>
+              <div>
+                <div class="step-title">🔄 Node 5: Visual Verifier Agent</div>
+                <div class="step-desc">Re-runs Playwright navigation suite and confirms unclipped layout persistence</div>
+              </div>
+            </div>
+            <span class="step-badge badge-idle" id="badge-node-5">IDLE</span>
+          </div>
+
+          <!-- Node 6 -->
+          <div class="pipeline-step" id="step-node-6">
+            <div class="step-info">
+              <div class="step-num">6</div>
+              <div>
+                <div class="step-title">🚀 Node 6: Git Pusher Agent</div>
+                <div class="step-desc">Commits code changes and pushes branch `dev` to GitHub repository</div>
+              </div>
+            </div>
+            <span class="step-badge badge-idle" id="badge-node-6">IDLE</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Visual Defects & Code Diff Section -->
+    <div class="glass-card" style="padding: 1.5rem;">
+      <div class="gallery-header">
+        <div>
+          <div style="font-size: 1.15rem; font-weight: 600;">🖼️ Visual Inspection & Repair Verification Gallery</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">Compare UI layout before and after VLM automated repair</div>
+        </div>
+
+        <div class="viewport-tabs">
+          <button class="tab-btn active" onclick="switchViewportTab('mobile')">📱 Mobile (390x844)</button>
+          <button class="tab-btn" onclick="switchViewportTab('tablet')">平板 Tablet (768x1024)</button>
+          <button class="tab-btn" onclick="switchViewportTab('desktop')">💻 Desktop (1440x900)</button>
+        </div>
+      </div>
+
+      <div class="screenshot-display">
+
+        <!-- Initial Defect Card -->
+        <div class="glass-card shot-card">
+          <div class="shot-card-title">
+            <span style="color: var(--accent-rose);">❌ Initial Capture (Bug Detected)</span>
+            <span style="font-size: 0.75rem; padding: 0.2rem 0.5rem; background: rgba(244,63,94,0.15); color: var(--accent-rose); border-radius: 4px;">Clipped Button</span>
+          </div>
+          <div class="image-container" id="container-initial-shot">
+            <img id="img-initial-shot" src="/output/20260814-161836/mobile_05_place_order.png" alt="Initial UI defect screenshot" onerror="this.src='https://placehold.co/600x400/0f172a/94a3b8?text=Mobile+UI+Screenshot';">
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-muted);" id="defect-desc-text">
+            <strong>Defect:</strong> The 'Place order' button is clipped and hidden inside <code>.order-action-panel</code> due to <code>max-height: 64px</code> & <code>overflow: hidden</code>.
+          </div>
+        </div>
+
+        <!-- Verified Fix Card -->
+        <div class="glass-card shot-card">
+          <div class="shot-card-title">
+            <span style="color: var(--accent-emerald);">✅ Post-Repair Verification</span>
+            <span style="font-size: 0.75rem; padding: 0.2rem 0.5rem; background: rgba(16,185,129,0.15); color: var(--accent-emerald); border-radius: 4px;">Verified Unclipped</span>
+          </div>
+          <div class="image-container" id="container-verified-shot">
+            <img id="img-verified-shot" src="/output/20260814-161852/mobile_05_place_order.png" alt="Verified UI screenshot" onerror="this.src='https://placehold.co/600x400/0f172a/10b981?text=Verified+Mobile+UI';">
+          </div>
+          <div style="font-size: 0.78rem; color: var(--accent-emerald);" id="verified-desc-text">
+            <strong>Result:</strong> Container height expands naturally. 'Place order' button is 100% visible and clickable across all viewports.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Code Patch Applied Diff -->
+      <div style="margin-top: 1.5rem;">
+        <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted);">
+          🛠️ Applied CSS Fix Diff (styles.css)
+        </div>
+        <div class="code-diff-box">
+          <span style="color: var(--text-dim);">--- trailhead-mock-store/styles.css</span><br>
+          <span style="color: var(--text-dim);">+++ trailhead-mock-store/styles.css</span><br>
+          <span style="color: var(--accent-cyan);">@@ -317,8 +317,8 @@ .order-action-panel @@</span><br>
+          <span class="diff-del">-  overflow: hidden;      /* clips content instead of wrapping */</span><br>
+          <span class="diff-del">-  max-height: 64px;      /* fine on desktop, too short on mobile */</span><br>
+          <span class="diff-add">+  overflow: visible;     /* fixed clipping issue on mobile */</span><br>
+          <span class="diff-add">+  max-height: none;      /* allows container to expand naturally */</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Builds & Pull Requests Status Table -->
+    <div class="glass-card" style="padding: 1.5rem;">
+      <div class="panel-title">
+        <span>📋 Builds & Pull Requests Dashboard</span>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Run ID</th>
+            <th>Target Store</th>
+            <th>Branch</th>
+            <th>Status</th>
+            <th>Timestamp</th>
+            <th>Commit SHA</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="table-builds-body">
+          <tr>
+            <td style="font-family: var(--font-mono); color: var(--primary);">20260814-161852</td>
+            <td>trailhead-mock-store</td>
+            <td><span style="padding: 0.2rem 0.5rem; background: rgba(99,102,241,0.15); color: #818cf8; border-radius: 4px; font-size: 0.78rem;">dev</span></td>
+            <td><span style="color: var(--accent-emerald); font-weight: 600;">✅ FIXED</span></td>
+            <td>2026-08-14 16:18:52</td>
+            <td style="font-family: var(--font-mono);">a8f19c2</td>
+            <td>
+              <button class="action-btn btn-approve" onclick="handleApprovePR(1)">Approve PR</button>
+              <button class="action-btn btn-reject" onclick="handleRejectPR(1)">Reject</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Live Execution Logs Console -->
+    <div class="glass-card" style="padding: 1.5rem;">
+      <div class="panel-title" style="margin-bottom: 0.75rem;">
+        <span>💻 Live Orchestrator Terminal Output Console</span>
+      </div>
+      <div class="console-box" id="terminal-console">
+[System] OmniSight VLM Orchestrator Gateway API active.
+[System] Ready to run automated visual bug fixes.
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

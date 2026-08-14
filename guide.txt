@@ -1,0 +1,15 @@
+# DB execution
+1. install database PostgerSQL or MySQL
+2. execute the script that provided in db folder (create_table.txt) copy the code and execute 
+   in mysql workbench or any db client
+
+# Postman
+1. Install postman for testing api
+
+# API
+1. running the api 
+    command - fastapi dev getway.py
+
+# create python environment
+    command - python3 -m venv venv 
+
