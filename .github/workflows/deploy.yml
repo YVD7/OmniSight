@@ -39,15 +39,24 @@ jobs:
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
               echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
               sudo apt-get update -y
-              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io
             else
               info "✅ Docker already installed."
+            fi
+
+            # Install Docker Compose (if missing)
+            info "🛠️  Installing Docker Compose (if missing)…"
+            if ! command -v docker-compose &>/dev/null; then
+              sudo apt-get update -y
+              sudo apt-get install -y docker-compose || {
+                sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+                sudo chmod +x /usr/local/bin/docker-compose
+              }
             fi
 
             sudo usermod -aG docker "$USER" || true
             newgrp docker <<'EOF'
               docker version
-              docker compose version
             EOF
 
             APP_DIR="/home/${USER}/OmniSight"
@@ -81,10 +90,8 @@ jobs:
             EOF
 
             info "📦  Building & starting Docker stack"
-            # Bring down any previous compose stack
-            docker compose down || true
-            # Build and bring up anew
-            docker compose up -d --build
+            docker-compose down || true
+            docker-compose up -d --build
 
             HEALTH_URL="http://localhost:8000/status"
             info "🔍  Waiting for FastAPI health endpoint ($HEALTH_URL)…"
@@ -95,7 +102,7 @@ jobs:
               fi
               info "⏳  Attempt $i/12 – still waiting…"
               sleep 5
-            done
+done
 
             if ! curl -sSf "$HEALTH_URL" > /dev/null; then
               error "❌  API health check failed after 60 s"
