@@ -24,37 +24,47 @@ jobs:
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           port: 22
           script: |
-            echo "🚀 Starting Deployment on Azure VM..."
-            
-            # Check if Docker is installed on the Azure VM; install if missing
-            if ! command -v docker &> /dev/null; then
-              echo "🐳 Docker not found on Azure VM. Auto-installing Docker..."
-              curl -fsSL https://get.docker.com -o get-docker.sh
-              sudo sh get-docker.sh
-              sudo usermod -aG docker $USER || true
-              rm get-docker.sh
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            info() { echo -e "🚀  $*"; }
+            error() { echo -e "❌  $*" >&2; }
+
+            # Install Docker Engine (if missing)
+            info "🛠️  Installing Docker Engine (if missing)…"
+            if ! command -v docker &>/dev/null; then
+              sudo apt-get update -y
+              sudo apt-get install -y ca-certificates curl gnupg lsb-release
+              sudo mkdir -p /etc/apt/keyrings
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              sudo apt-get update -y
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            else
+              info "✅ Docker already installed."
             fi
 
-            # Check if Docker Compose plugin is installed
-            if ! docker compose version &> /dev/null; then
-              echo "🐳 Docker Compose plugin not found. Installing docker-compose-plugin..."
-              sudo apt-get update && sudo apt-get install -y docker-compose-plugin || true
-            fi
+            sudo usermod -aG docker "$USER" || true
+            newgrp docker <<'EOF'
+              docker version
+              docker compose version
+            EOF
 
-            # Navigate to application directory
-            mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/OmniSight
-            cd /home/${{ secrets.AZURE_VM_USERNAME }}/OmniSight
+            APP_DIR="/home/${USER}/OmniSight"
+            info "📂  Ensuring application directory at $APP_DIR"
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
 
-            # Git pull latest changes
             if [ -d ".git" ]; then
+              info "🔄  Updating existing repo…"
               git fetch origin
               git reset --hard origin/main || git reset --hard origin/master
             else
-              git clone https://github.com/${{ github.repository }}.git .
+              info "📥  Cloning repository…"
+              git clone https://github.com/YVD7/OmniSight.git .
             fi
 
-            # Inject secrets into .env.secrets file (Note: GitHub Action Secrets must NOT start with GITHUB_)
-            cat << 'EOF' > .env.secrets
+            cat > .env <<'EOF'
             POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
             POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
@@ -70,31 +80,31 @@ jobs:
             BASE_URL=${{ secrets.BASE_URL }}
             EOF
 
-            # Copy to .env if needed
-            cp .env.secrets .env
-
-            # Build and restart containers using Docker Compose
-            echo "📦 Building and starting Docker containers..."
+            info "📦  Building & starting Docker stack"
+            # Bring down any previous compose stack
             docker compose down || true
+            # Build and bring up anew
             docker compose up -d --build
 
-            # Verify API health with retry loop
-            echo "🔍 Verifying deployment health status..."
-            HEALTH_CHECK_PASSED=0
+            HEALTH_URL="http://localhost:8000/status"
+            info "🔍  Waiting for FastAPI health endpoint ($HEALTH_URL)…"
             for i in {1..12}; do
-              if curl -s -f http://localhost:8000/api/status > /dev/null; then
-                HEALTH_CHECK_PASSED=1
-                echo "✅ API is online and responding at http://localhost:8000/api/status"
+              if curl -sSf "$HEALTH_URL" > /dev/null; then
+                info "✅  API is healthy after $((i*5)) s"
                 break
               fi
-              echo "⏳ Waiting for API container to initialize (Attempt $i/12)..."
+              info "⏳  Attempt $i/12 – still waiting…"
               sleep 5
             done
 
-            if [ $HEALTH_CHECK_PASSED -ne 1 ]; then
-              echo "❌ API Healthcheck failed after 60 seconds!"
-              docker compose logs --tail=50
+            if ! curl -sSf "$HEALTH_URL" > /dev/null; then
+              error "❌  API health check failed after 60 s"
+              info "📜  Last 50 lines of each container log:"
+              for CONTAINER in $(docker ps --format "{{.Names}}"); do
+                echo "=== $CONTAINER ==="
+                docker logs --tail 50 "$CONTAINER"
+              done
               exit 1
             fi
 
-            echo "✅ OmniSight successfully deployed via Docker on Azure VM!"
+            info "✅  OmniSight successfully deployed on Azure VM!"
