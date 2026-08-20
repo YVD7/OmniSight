@@ -29,6 +29,11 @@ services:
       GH_TOKEN: ${GH_TOKEN}
       GH_BRANCH: ${GH_BRANCH}
       BASE_URL: ${BASE_URL}
+
+      # GEMINI_API_KEY
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+      
     volumes:
       - ./output:/app/output
       - ./db:/app/db
