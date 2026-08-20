@@ -87,6 +87,7 @@ jobs:
             GH_TOKEN=${{ secrets.TARGET_TOKEN }}
             GH_BRANCH=${{ secrets.TARGET_BRANCH }}
             BASE_URL=${{ secrets.BASE_URL }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             EOF
 
             info "📦  Building & starting Docker stack"
