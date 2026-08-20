@@ -94,7 +94,7 @@ jobs:
             docker-compose down || true
             docker-compose up -d --build
 
-            HEALTH_URL="http://localhost:8000/status"
+            HEALTH_URL="http://localhost:8000/api/status"
             info "🔍  Waiting for FastAPI health endpoint ($HEALTH_URL)…"
             for i in {1..12}; do
                 if curl -sSf "$HEALTH_URL" > /dev/null; then
