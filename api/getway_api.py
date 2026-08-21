@@ -1,10 +1,14 @@
 import asyncio
 import datetime
+import json
 import logging
 import os
 import pathlib
+import re
 import sys
 import time
+import urllib.error
+import urllib.request
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
@@ -840,8 +844,6 @@ def get_prs():
 
 def merge_github_pull_request(repo_url: str, pr_number: int, github_token: str):
     """Merges a Pull Request on GitHub using the GitHub REST API."""
-    import re, urllib.request, json
-    
     clean_repo = re.sub(r"\.git$", "", repo_url.replace("https://github.com/", "").replace("git@github.com:", "").strip("/"))
     api_url = f"https://api.github.com/repos/{clean_repo}/pulls/{pr_number}/merge"
     
