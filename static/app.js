@@ -644,9 +644,10 @@ function setPipelineStepStatus(stepId, badgeId, text, className) {
 // Screenshot Viewer Gallery (Azure Blob Storage Integration)
 // ============================================================================
 
-async function loadGalleryScreenshots() {
+async function loadGalleryScreenshots(buildId = null) {
   try {
-    const res = await fetch('/api/artifacts/screenshots');
+    const url = buildId ? `/api/artifacts/screenshots?build_id=${buildId}` : '/api/artifacts/screenshots';
+    const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
       screenshotData = data.screenshots;
@@ -672,31 +673,44 @@ function updateScreenshotGalleryImages() {
   const initialImg = document.getElementById('img-initial-shot');
   const verifiedImg = document.getElementById('img-verified-shot');
 
-  if (screenshotData) {
-    if (initialImg && screenshotData.initial && screenshotData.initial[currentViewport]) {
+  const fallbackInitial = `https://omnisight.blob.core.windows.net/omnisight-artifacts/20260821-121744/${currentViewport}_05_place_order.png`;
+  const fallbackVerified = `https://omnisight.blob.core.windows.net/omnisight-artifacts/20260821-122030/${currentViewport}_05_place_order.png`;
+
+  if (initialImg) {
+    initialImg.onerror = function() {
+      if (this.src !== fallbackInitial) {
+        this.src = fallbackInitial;
+      }
+    };
+    if (screenshotData && screenshotData.initial && screenshotData.initial[currentViewport]) {
       initialImg.src = screenshotData.initial[currentViewport];
+    } else {
+      initialImg.src = fallbackInitial;
     }
-    if (verifiedImg && screenshotData.verified && screenshotData.verified[currentViewport]) {
-      verifiedImg.src = screenshotData.verified[currentViewport];
-    }
-    return;
   }
 
-  // Direct fallback to Azure Blob URLs
-  const initialBlob = `https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231012/${currentViewport}_05_place_order.png`;
-  const verifiedBlob = `https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231035/${currentViewport}_05_place_order.png`;
-
-  if (initialImg) initialImg.src = initialBlob;
-  if (verifiedImg) verifiedImg.src = verifiedBlob;
+  if (verifiedImg) {
+    verifiedImg.onerror = function() {
+      if (this.src !== fallbackVerified) {
+        this.src = fallbackVerified;
+      }
+    };
+    if (screenshotData && screenshotData.verified && screenshotData.verified[currentViewport]) {
+      verifiedImg.src = screenshotData.verified[currentViewport];
+    } else {
+      verifiedImg.src = fallbackVerified;
+    }
+  }
 }
 
 // ============================================================================
 // GitHub-Style Diff Comparison Viewer
 // ============================================================================
 
-async function loadLatestDiff() {
+async function loadLatestDiff(buildId = null) {
   try {
-    const res = await fetch('/api/diff/latest');
+    const url = buildId ? `/api/diff/latest?build_id=${buildId}` : '/api/diff/latest';
+    const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
       currentDiffData = data;

@@ -628,8 +628,9 @@ def get_artifact_screenshots(build_id: Optional[int] = None):
     container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "omnisight-artifacts")
     blob_base = f"https://{account_name}.blob.core.windows.net/{container_name}"
 
-    initial_run = "20260820-231012"
-    verified_run = "20260820-231035"
+    # Default verified and initial runs
+    initial_run = "20260821-121744"
+    verified_run = "20260821-122030"
 
     try:
         from vlm.azure_storage import get_azure_blob_service
@@ -642,7 +643,8 @@ def get_artifact_screenshots(build_id: Optional[int] = None):
                     runs = set()
                     for b in container_client.list_blobs():
                         parts = b.name.split("/")
-                        if len(parts) > 1 and parts[0] != "output":
+                        # ONLY accept runs that actually have complete place_order screenshots!
+                        if len(parts) > 1 and parts[0] != "output" and "05_place_order.png" in b.name:
                             runs.add(parts[0])
                     sorted_runs = sorted(list(runs))
                     if sorted_runs:
@@ -659,6 +661,20 @@ def get_artifact_screenshots(build_id: Optional[int] = None):
                     continue
     except Exception as e:
         logger.warning(f"Notice getting blob runs: {e}")
+
+    # If build_id provided, check database for build specific screenshot
+    if build_id:
+        try:
+            from sqlalchemy import text
+            engine, _ = get_db_engine()
+            with engine.connect() as conn:
+                res = conn.execute(text("SELECT screenshot_path FROM anomalies WHERE build_id=:bid ORDER BY id ASC LIMIT 1"), {"bid": build_id}).fetchone()
+                if res and res[0] and "http" in res[0]:
+                    parts = res[0].split("/")
+                    if len(parts) >= 2:
+                        initial_run = parts[-2]
+        except Exception as e:
+            logger.debug(f"Could not load build screenshot: {e}")
 
     # Fallback to local output dir if available
     try:
@@ -695,7 +711,7 @@ def get_artifact_screenshots(build_id: Optional[int] = None):
 
 
 @app.get("/api/diff/latest")
-def get_latest_code_diff():
+def get_latest_code_diff(build_id: Optional[int] = None):
     """Returns the latest applied code repair diff in GitHub-compatible format."""
     return {
         "file": "styles.css",
