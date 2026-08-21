@@ -149,12 +149,10 @@ class WebSocketLogHandler(logging.Handler):
             pass
 
 
-# Attach custom WebSocket log handler to root and module loggers
+# Attach custom WebSocket log handler to root logger
 ws_log_handler = WebSocketLogHandler()
 ws_log_handler.setFormatter(logging.Formatter("[%(name)s] %(message)s"))
 logging.getLogger().addHandler(ws_log_handler)
-logging.getLogger("vlm").addHandler(ws_log_handler)
-logging.getLogger("navigator").addHandler(ws_log_handler)
 
 
 # Register event callback hook with vlm_orchestrator
