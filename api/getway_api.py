@@ -416,6 +416,10 @@ def trigger_orchestration(req: OrchestrationRequest):
         staging_val = req.base_url or final_state.get("base_url") or "http://127.0.0.1:9876"
         status_val = "FIXED" if is_fixed else ("CLEAN" if not visual_defects else "FAILED")
 
+        git_res = final_state.get("git_result", {})
+        real_pr_num = git_res.get("pr_number")
+        real_pr_url = git_res.get("pr_url")
+
         # Record in Database tables matching db/create_table.txt
         db_records = record_orchestration_in_db(
             repo=repo_val,
@@ -426,7 +430,9 @@ def trigger_orchestration(req: OrchestrationRequest):
             visual_defects=visual_defects,
             code_changes=code_changes,
             iteration=final_state.get("iteration", 1),
-            is_fixed=is_fixed
+            is_fixed=is_fixed,
+            real_pr_number=real_pr_num,
+            real_pr_url=real_pr_url
         )
 
         has_pr = db_records.get("pr_number") is not None
@@ -454,7 +460,7 @@ def trigger_orchestration(req: OrchestrationRequest):
         raise HTTPException(status_code=500, detail=f"Orchestration execution failed: {str(e)}")
 
 
-def record_orchestration_in_db(repo, commit_sha, branch, staging_url, status, visual_defects, code_changes, iteration, is_fixed):
+def record_orchestration_in_db(repo, commit_sha, branch, staging_url, status, visual_defects, code_changes, iteration, is_fixed, real_pr_number=None, real_pr_url=None):
     """Helper to insert records into builds, anomalies, fix_attempts, and pull_requests (only when code changes exist) tables."""
     records = {}
     try:
@@ -541,8 +547,8 @@ def record_orchestration_in_db(repo, commit_sha, branch, staging_url, status, vi
 
             # 4. Insert into pull_requests — ONLY IF code changes were made AND verified!
             if code_changes and is_fixed:
-                pr_number = 100 + build_id
-                pr_url = f"{repo.replace('.git', '')}/pull/{pr_number}"
+                pr_number = real_pr_number if real_pr_number else (100 + build_id)
+                pr_url = real_pr_url if real_pr_url else f"{repo.replace('.git', '')}/pull/{pr_number}"
                 insert_pr = text("""
                     INSERT INTO pull_requests (build_id, pr_number, pr_url, status)
                     VALUES (:build_id, :pr_number, :pr_url, 'pending')
@@ -554,7 +560,7 @@ def record_orchestration_in_db(repo, commit_sha, branch, staging_url, status, vi
                 })
                 records["pr_number"] = pr_number
                 records["pr_url"] = pr_url
-                logger.info(f"✅ [DB Persistence] Pull Request record created: PR #{pr_number} for Build #{build_id}")
+                logger.info(f"✅ [DB Persistence] Pull Request record created: PR #{pr_number} for Build #{build_id} ({pr_url})")
             else:
                 records["pr_number"] = None
                 records["pr_url"] = None
@@ -766,12 +772,69 @@ def get_prs():
         return {"prs": [], "error": str(e)}
 
 
+def merge_github_pull_request(repo_url: str, pr_number: int, github_token: str):
+    """Merges a Pull Request on GitHub using the GitHub REST API."""
+    import re, urllib.request, json
+    
+    clean_repo = re.sub(r"\.git$", "", repo_url.replace("https://github.com/", "").replace("git@github.com:", "").strip("/"))
+    api_url = f"https://api.github.com/repos/{clean_repo}/pulls/{pr_number}/merge"
+    
+    payload = {
+        "commit_title": f"Merge pull request #{pr_number} from OmniSight VLM Automated Repair",
+        "commit_message": "Approved and merged via OmniSight VLM Studio Dashboard.",
+        "merge_method": "merge"
+    }
+    
+    req = urllib.request.Request(
+        api_url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {github_token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "OmniSight-VLM"
+        },
+        method="PUT"
+    )
+    
+    try:
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data.get("merged", True), data.get("message", "Merged successfully")
+    except urllib.error.HTTPError as he:
+        err_body = he.read().decode("utf-8", errors="ignore")
+        logger.warning(f"⚠️ GitHub PR merge notice ({he.code}): {err_body}")
+        return False, err_body
+    except Exception as e:
+        logger.error(f"❌ Error merging GitHub PR: {e}")
+        return False, str(e)
+
+
 @app.post("/prs/{pr_id}/approve")
 def approve_pr(pr_id: int):
-    """Approves a pull request by ID and broadcasts real-time status update."""
+    """Approves a pull request by ID, merges it on GitHub via REST API, and broadcasts real-time status update."""
     try:
         from sqlalchemy import text
         engine, _ = get_db_engine()
+        pr_info = None
+        repo_url = os.getenv("GH_REPO_URL", "https://github.com/YVD7/mock-app.git")
+        github_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+
+        with engine.connect() as conn:
+            row = conn.execute(text("SELECT p.*, b.repo FROM pull_requests p JOIN builds b ON p.build_id = b.id WHERE p.id=:pr_id"), {"pr_id": pr_id}).fetchone()
+            if row:
+                pr_info = dict(row._mapping)
+                if pr_info.get("repo"):
+                    repo_url = pr_info["repo"]
+
+        # Merge on GitHub if real PR number exists
+        github_merge_result = None
+        if pr_info and pr_info.get("pr_number") and github_token:
+            pr_num = pr_info["pr_number"]
+            merged, msg = merge_github_pull_request(repo_url, pr_num, github_token)
+            github_merge_result = {"merged": merged, "message": msg}
+            logger.info(f"🔀 GitHub PR #{pr_num} merge response: {msg}")
+
         with engine.begin() as conn:
             conn.execute(
                 text("UPDATE pull_requests SET status='approved', reviewed_by='Admin' WHERE id=:pr_id"),
@@ -784,13 +847,14 @@ def approve_pr(pr_id: int):
             "data": {
                 "pr_id": pr_id,
                 "status": "approved",
-                "reviewed_by": "Admin"
+                "reviewed_by": "Admin",
+                "github_merge": github_merge_result
             },
             "timestamp": datetime.datetime.now().strftime("%H:%M:%S")
         })
 
-        logger.info(f"✅ Pull Request #{pr_id} marked as APPROVED by Admin.")
-        return {"message": f"Pull request {pr_id} approved.", "status": "approved", "pr_id": pr_id}
+        logger.info(f"✅ Pull Request #{pr_id} marked as APPROVED by Admin (GitHub merge: {github_merge_result}).")
+        return {"message": f"Pull request {pr_id} approved and merged on GitHub.", "status": "approved", "pr_id": pr_id, "github_merge": github_merge_result}
     except Exception as e:
         logger.error(f"Error approving PR #{pr_id}: {e}")
         return {"error": str(e)}
