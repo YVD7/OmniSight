@@ -701,6 +701,26 @@ function updateScreenshotGalleryImages() {
       verifiedImg.src = fallbackVerified;
     }
   }
+
+  const isClean = screenshotData && screenshotData.build_status === 'CLEAN';
+  const defectDesc = document.getElementById('defect-desc-text');
+  const verifiedDesc = document.getElementById('verified-desc-text');
+
+  if (defectDesc) {
+    if (isClean) {
+      defectDesc.innerHTML = `<strong>Clean UI:</strong> No visual layout clipping detected. Element flows naturally across <code>${currentViewport}</code> viewport.`;
+    } else {
+      defectDesc.innerHTML = `<strong>Defect:</strong> Primary 'Place order' button is clipped and hidden on mobile viewport due to <code>max-height: 64px</code> and <code>overflow: hidden</code> on <code>.order-action-panel</code>.`;
+    }
+  }
+
+  if (verifiedDesc) {
+    if (isClean) {
+      verifiedDesc.innerHTML = `<strong>Verification:</strong> Build verified clean. All layout checks passed without requiring code patches.`;
+    } else {
+      verifiedDesc.innerHTML = `<strong>Result:</strong> Container height expands naturally. 'Place order' button is 100% visible and clickable across all viewports.`;
+    }
+  }
 }
 
 // ============================================================================
