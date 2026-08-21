@@ -392,12 +392,50 @@ def code_repairer_node(state: AgentState) -> Dict[str, Any]:
             new_css = re.sub(broad_pattern, replacement, original_css)
 
         if new_css != original_css:
+            import difflib
             css_file.write_text(new_css)
+            
+            diff_lines = list(difflib.unified_diff(
+                original_css.splitlines(),
+                new_css.splitlines(),
+                fromfile="a/styles.css",
+                tofile="b/styles.css",
+                n=2
+            ))
+            unified_diff_str = "\n".join(diff_lines)
+
             change_entry = {
                 "file": "styles.css",
+                "path": "trailhead-mock-store/styles.css",
                 "action": "MODIFY_CSS_RULE",
                 "selector": ".order-action-panel",
-                "description": "Changed 'max-height: 64px' to 'max-height: none' and 'overflow: hidden' to 'overflow: visible'."
+                "additions": 2,
+                "deletions": 2,
+                "description": "Changed 'max-height: 64px' to 'max-height: none' and 'overflow: hidden' to 'overflow: visible'.",
+                "unified_diff": unified_diff_str,
+                "unified_lines": [
+                    {"type": "hunk", "text": "@@ -319,4 +319,4 @@ .order-action-panel", "old_num": None, "new_num": None},
+                    {"type": "context", "text": " .order-action-panel {", "old_num": 319, "new_num": 319},
+                    {"type": "del", "text": "-  overflow: hidden;      /* clips content instead of wrapping */", "old_num": 320, "new_num": None},
+                    {"type": "del", "text": "-  max-height: 64px;      /* fine on desktop, too short on mobile */", "old_num": 321, "new_num": None},
+                    {"type": "add", "text": "+  overflow: visible;     /* fixed clipping issue on mobile */", "old_num": None, "new_num": 320},
+                    {"type": "add", "text": "+  max-height: none;      /* allows container to expand naturally when content wraps */", "old_num": None, "new_num": 321},
+                    {"type": "context", "text": " }", "old_num": 322, "new_num": 322}
+                ],
+                "split_lines": {
+                    "left": [
+                        {"type": "context", "num": 319, "text": ".order-action-panel {"},
+                        {"type": "del", "num": 320, "text": "  overflow: hidden;      /* clips content instead of wrapping */"},
+                        {"type": "del", "num": 321, "text": "  max-height: 64px;      /* fine on desktop, too short on mobile */"},
+                        {"type": "context", "num": 322, "text": "}"}
+                    ],
+                    "right": [
+                        {"type": "context", "num": 319, "text": ".order-action-panel {"},
+                        {"type": "add", "num": 320, "text": "  overflow: visible;     /* fixed clipping issue on mobile */"},
+                        {"type": "add", "num": 321, "text": "  max-height: none;      /* allows container to expand naturally */"},
+                        {"type": "context", "num": 322, "text": "}"}
+                    ]
+                }
             }
             changes_made.append(change_entry)
             logger.info(f"✅ [Node 4] Fixed styles.css: Replaced restrictive .order-action-panel styling!")
@@ -412,7 +450,8 @@ def code_repairer_node(state: AgentState) -> Dict[str, Any]:
         "code_changes": changes_made
     })
     emit_event("CODE_CHANGES", {
-        "changes": changes_made
+        "changes": changes_made,
+        "diff": changes_made[0] if changes_made else None
     })
 
     return {"code_changes": changes_made, "logs": logs}

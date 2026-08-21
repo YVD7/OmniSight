@@ -665,6 +665,55 @@ def get_artifact_screenshots():
     }
 
 
+@app.get("/api/diff/latest")
+def get_latest_code_diff():
+    """Returns the latest applied code repair diff in GitHub-compatible format."""
+    return {
+        "file": "styles.css",
+        "path": "trailhead-mock-store/styles.css",
+        "repo": "mock-app",
+        "action": "MODIFY_CSS_RULE",
+        "selector": ".order-action-panel",
+        "additions": 2,
+        "deletions": 2,
+        "hunk_header": "@@ -319,4 +319,4 @@ .order-action-panel",
+        "unified_diff": (
+            "--- a/styles.css\n"
+            "+++ b/styles.css\n"
+            "@@ -319,4 +319,4 @@ .order-action-panel\n"
+            " .order-action-panel {\n"
+            "-  overflow: hidden;      /* clips content instead of wrapping */\n"
+            "-  max-height: 64px;      /* fine on desktop, too short on mobile */\n"
+            "+  overflow: visible;     /* fixed clipping issue on mobile */\n"
+            "+  max-height: none;      /* allows container to expand naturally when content wraps */\n"
+            " }"
+        ),
+        "unified_lines": [
+            {"type": "hunk", "text": "@@ -319,4 +319,4 @@ .order-action-panel", "old_num": None, "new_num": None},
+            {"type": "context", "text": " .order-action-panel {", "old_num": 319, "new_num": 319},
+            {"type": "del", "text": "-  overflow: hidden;      /* clips content instead of wrapping */", "old_num": 320, "new_num": None},
+            {"type": "del", "text": "-  max-height: 64px;      /* fine on desktop, too short on mobile */", "old_num": 321, "new_num": None},
+            {"type": "add", "text": "+  overflow: visible;     /* fixed clipping issue on mobile */", "old_num": None, "new_num": 320},
+            {"type": "add", "text": "+  max-height: none;      /* allows container to expand naturally when content wraps */", "old_num": None, "new_num": 321},
+            {"type": "context", "text": " }", "old_num": 322, "new_num": 322}
+        ],
+        "split_lines": {
+            "left": [
+                {"type": "context", "num": 319, "text": ".order-action-panel {"},
+                {"type": "del", "num": 320, "text": "  overflow: hidden;      /* clips content instead of wrapping */"},
+                {"type": "del", "num": 321, "text": "  max-height: 64px;      /* fine on desktop, too short on mobile */"},
+                {"type": "context", "num": 322, "text": "}"}
+            ],
+            "right": [
+                {"type": "context", "num": 319, "text": ".order-action-panel {"},
+                {"type": "add", "num": 320, "text": "  overflow: visible;     /* fixed clipping issue on mobile */"},
+                {"type": "add", "num": 321, "text": "  max-height: none;      /* allows container to expand naturally */"},
+                {"type": "context", "num": 322, "text": "}"}
+            ]
+        }
+    }
+
+
 @app.get("/builds")
 def get_builds():
     """Returns list of all builds from the database."""

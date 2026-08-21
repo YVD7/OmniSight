@@ -8,11 +8,14 @@ let latestRunResult = null;
 let ws = null;
 let wsReconnectTimer = null;
 let screenshotData = null;
+let currentDiffMode = 'unified';
+let currentDiffData = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   fetchSystemStatus();
   loadDashboardBuilds();
   loadGalleryScreenshots();
+  loadLatestDiff();
   initWebSocket();
 });
 
@@ -229,6 +232,12 @@ function handleDefectsDetected(data) {
 
 function handleCodeChangesUpdate(data) {
   const changes = data.changes || [];
+  if (data.diff) {
+    currentDiffData = data.diff;
+    renderGitHubDiff(currentDiffData);
+  } else if (changes.length > 0) {
+    loadLatestDiff();
+  }
   if (changes.length > 0) {
     appendConsoleLog(`🛠️ [Code Repair] Applied ${changes.length} patch(es): ${changes.map(c => c.selector || c.file).join(', ')}`);
   }
@@ -634,6 +643,167 @@ function updateScreenshotGalleryImages() {
 
   if (initialImg) initialImg.src = initialBlob;
   if (verifiedImg) verifiedImg.src = verifiedBlob;
+}
+
+// ============================================================================
+// GitHub-Style Diff Comparison Viewer
+// ============================================================================
+
+async function loadLatestDiff() {
+  try {
+    const res = await fetch('/api/diff/latest');
+    if (res.ok) {
+      const data = await res.json();
+      currentDiffData = data;
+      renderGitHubDiff(currentDiffData);
+    }
+  } catch (err) {
+    console.warn("Could not load latest code diff:", err);
+  }
+}
+
+function setDiffViewMode(mode) {
+  currentDiffMode = mode;
+  const btnUnified = document.getElementById('btn-diff-unified');
+  const btnSplit = document.getElementById('btn-diff-split');
+  if (btnUnified) btnUnified.classList.toggle('active', mode === 'unified');
+  if (btnSplit) btnSplit.classList.toggle('active', mode === 'split');
+  renderGitHubDiff(currentDiffData);
+}
+
+function renderGitHubDiff(diffData) {
+  const container = document.getElementById('diff-table-container');
+  const fileNameElem = document.getElementById('diff-file-name');
+  const statAddElem = document.getElementById('diff-stat-add');
+  const statDelElem = document.getElementById('diff-stat-del');
+  const descLabel = document.getElementById('diff-desc-label');
+
+  if (!container) return;
+
+  if (!diffData) {
+    container.innerHTML = `
+      <div style="padding: 1.5rem; text-align: center; color: #8b949e; font-size: 13px;">
+        No code changes applied yet. Trigger a run or push from mock-app to see live diff comparison.
+      </div>
+    `;
+    return;
+  }
+
+  if (fileNameElem) fileNameElem.textContent = diffData.path || diffData.file || 'styles.css';
+  if (statAddElem) statAddElem.textContent = `+${diffData.additions ?? 2}`;
+  if (statDelElem) statDelElem.textContent = `-${diffData.deletions ?? 2}`;
+  if (descLabel && diffData.selector) descLabel.textContent = `${diffData.selector} fix`;
+
+  if (currentDiffMode === 'split' && diffData.split_lines) {
+    // Render GitHub Side-by-Side Split View
+    const leftRows = (diffData.split_lines.left || []).map(l => {
+      const isDel = l.type === 'del';
+      const rowClass = isDel ? 'diff-row-del' : 'diff-row-context';
+      const sign = isDel ? '-' : ' ';
+      return `
+        <div class="diff-row ${rowClass}">
+          <div class="diff-line-num">${l.num || ''}</div>
+          <div class="diff-line-sign">${sign}</div>
+          <div class="diff-line-code">${escapeHtml(l.text)}</div>
+        </div>
+      `;
+    }).join('');
+
+    const rightRows = (diffData.split_lines.right || []).map(l => {
+      const isAdd = l.type === 'add';
+      const rowClass = isAdd ? 'diff-row-add' : 'diff-row-context';
+      const sign = isAdd ? '+' : ' ';
+      return `
+        <div class="diff-row ${rowClass}">
+          <div class="diff-line-num">${l.num || ''}</div>
+          <div class="diff-line-sign">${sign}</div>
+          <div class="diff-line-code">${escapeHtml(l.text)}</div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="diff-split-container">
+        <div class="diff-split-side">
+          <div style="background: #161b22; padding: 6px 12px; font-size: 11px; color: #f85149; font-weight: 600; border-bottom: 1px solid #30363d;">
+            Original (Defective layout)
+          </div>
+          ${leftRows}
+        </div>
+        <div class="diff-split-side">
+          <div style="background: #161b22; padding: 6px 12px; font-size: 11px; color: #3fb950; font-weight: 600; border-bottom: 1px solid #30363d;">
+            Modified (Fixed CSS rule)
+          </div>
+          ${rightRows}
+        </div>
+      </div>
+    `;
+  } else {
+    // Render GitHub Unified View
+    const lines = diffData.unified_lines || [
+      { type: 'hunk', text: '@@ -319,4 +319,4 @@ .order-action-panel' },
+      { type: 'context', text: ' .order-action-panel {', old_num: 319, new_num: 319 },
+      { type: 'del', text: '-  overflow: hidden;      /* clips content instead of wrapping */', old_num: 320, new_num: '' },
+      { type: 'del', text: '-  max-height: 64px;      /* fine on desktop, too short on mobile */', old_num: 321, new_num: '' },
+      { type: 'add', text: '+  overflow: visible;     /* fixed clipping issue on mobile */', old_num: '', new_num: 320 },
+      { type: 'add', text: '+  max-height: none;      /* allows container to expand naturally when content wraps */', old_num: '', new_num: 321 },
+      { type: 'context', text: ' }', old_num: 322, new_num: 322 }
+    ];
+
+    let html = '<div class="diff-table">';
+    lines.forEach(l => {
+      if (l.type === 'hunk') {
+        html += `<div class="diff-row-hunk">${escapeHtml(l.text)}</div>`;
+      } else {
+        const isDel = l.type === 'del';
+        const isAdd = l.type === 'add';
+        const rowClass = isDel ? 'diff-row-del' : (isAdd ? 'diff-row-add' : 'diff-row-context');
+        const sign = isDel ? '-' : (isAdd ? '+' : ' ');
+        const cleanText = l.text.replace(/^[-+ ]/, '');
+
+        html += `
+          <div class="diff-row ${rowClass}">
+            <div class="diff-line-num">${l.old_num || ''}</div>
+            <div class="diff-line-num">${l.new_num || ''}</div>
+            <div class="diff-line-sign">${sign}</div>
+            <div class="diff-line-code">${escapeHtml(cleanText)}</div>
+          </div>
+        `;
+      }
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  }
+}
+
+function copyCodeDiff() {
+  const diffStr = currentDiffData?.unified_diff || (
+    "--- a/styles.css\n" +
+    "+++ b/styles.css\n" +
+    "@@ -319,4 +319,4 @@ .order-action-panel\n" +
+    " .order-action-panel {\n" +
+    "-  overflow: hidden;      /* clips content instead of wrapping */\n" +
+    "-  max-height: 64px;      /* fine on desktop, too short on mobile */\n" +
+    "+  overflow: visible;     /* fixed clipping issue on mobile */\n" +
+    "+  max-height: none;      /* allows container to expand naturally when content wraps */\n" +
+    " }"
+  );
+
+  navigator.clipboard.writeText(diffStr).then(() => {
+    showToast('📋 Git diff copied to clipboard!', 'success');
+  }).catch(() => {
+    showToast('Failed to copy diff to clipboard', 'error');
+  });
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // ============================================================================
