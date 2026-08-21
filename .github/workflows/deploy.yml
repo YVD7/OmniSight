@@ -83,9 +83,9 @@ jobs:
             AZURE_STORAGE_ACCOUNT_NAME=${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
             AZURE_STORAGE_ACCOUNT_KEY=${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
             AZURE_STORAGE_CONTAINER_NAME=${{ secrets.AZURE_STORAGE_CONTAINER_NAME }}
-            GH_REPO_URL=${{ secrets.TARGET_REPO_URL }}
-            GH_TOKEN=${{ secrets.TARGET_TOKEN }}
-            GH_BRANCH=${{ secrets.TARGET_BRANCH }}
+            GH_REPO_URL=${{ secrets.GH_REPO_URL }}
+            GH_TOKEN=${{ secrets.GH_TOKEN }}
+            GH_BRANCH=${{ secrets.GH_BRANCH }}
             BASE_URL=${{ secrets.BASE_URL }}
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             EOF
