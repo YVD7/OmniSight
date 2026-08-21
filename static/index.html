@@ -220,8 +220,11 @@
     <div class="glass-card" style="padding: 1.5rem;">
       <div class="gallery-header">
         <div>
-          <div style="font-size: 1.15rem; font-weight: 600;">🖼️ Visual Inspection & Repair Verification Gallery</div>
-          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">Compare UI layout before and after VLM automated repair</div>
+          <div style="font-size: 1.15rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span>🖼️ Visual Inspection & Repair Verification Gallery</span>
+            <span id="gallery-active-build-badge" style="font-size: 0.75rem; padding: 0.2rem 0.55rem; background: rgba(99,102,241,0.15); color: #818cf8; border-radius: 6px; font-family: var(--font-mono);">Latest PR & Build</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">Compare UI layout before and after VLM automated repair (click any table row below to inspect)</div>
         </div>
 
         <div class="viewport-tabs">
@@ -243,20 +246,20 @@
             <img id="img-initial-shot" src="https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231012/mobile_05_place_order.png" alt="Initial UI defect screenshot" onerror="this.src='/output/20260820-231012/mobile_05_place_order.png';">
           </div>
           <div style="font-size: 0.78rem; color: var(--text-muted);" id="defect-desc-text">
-            <strong>Defect:</strong> The 'Place order' button is clipped and hidden inside <code>.order-action-panel</code> due to <code>max-height: 64px</code> & <code>overflow: hidden</code>.
+            <strong>Defect:</strong> Primary 'Place order' button is clipped and hidden on mobile viewport due to <code>max-height: 64px</code> and <code>overflow: hidden</code> on <code>.order-action-panel</code>.
           </div>
         </div>
 
         <!-- Verified Fix Card -->
         <div class="glass-card shot-card">
           <div class="shot-card-title">
-            <span style="color: var(--accent-emerald);">✅ Post-Repair Verification</span>
-            <span style="font-size: 0.75rem; padding: 0.2rem 0.5rem; background: rgba(16,185,129,0.15); color: var(--accent-emerald); border-radius: 4px;">Verified Unclipped</span>
+            <span style="color: var(--accent-emerald);">✅ Post-Fix Verification (Defect Resolved)</span>
+            <span style="font-size: 0.75rem; padding: 0.2rem 0.5rem; background: rgba(16,185,129,0.15); color: var(--accent-emerald); border-radius: 4px;">100% Unclipped</span>
           </div>
           <div class="image-container" id="container-verified-shot">
-            <img id="img-verified-shot" src="https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231035/mobile_05_place_order.png" alt="Verified UI screenshot" onerror="this.src='/output/20260820-231035/mobile_05_place_order.png';">
+            <img id="img-verified-shot" src="https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231035/mobile_05_place_order.png" alt="Verified UI fix screenshot" onerror="this.src='/output/20260820-231035/mobile_05_place_order.png';">
           </div>
-          <div style="font-size: 0.78rem; color: var(--accent-emerald);" id="verified-desc-text">
+          <div style="font-size: 0.78rem; color: var(--text-muted);" id="verified-desc-text">
             <strong>Result:</strong> Container height expands naturally. 'Place order' button is 100% visible and clickable across all viewports.
           </div>
         </div>
@@ -273,6 +276,7 @@
               <span class="diff-stat-del" id="diff-stat-del">-2</span>
             </span>
             <span style="font-size: 0.75rem; color: #8b949e;" id="diff-desc-label">.order-action-panel fix</span>
+            <span style="font-size: 0.72rem; padding: 0.15rem 0.5rem; background: rgba(16,185,129,0.15); color: var(--accent-emerald); border-radius: 4px; font-family: var(--font-mono);" id="diff-active-pr-badge">Latest PR Fix</span>
           </div>
 
           <div class="diff-controls">

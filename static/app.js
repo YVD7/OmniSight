@@ -401,11 +401,11 @@ async function loadDashboardBuilds() {
         } else {
           prActionHtml = `
             <div class="pr-actions-group" id="pr-actions-${b.pr_id}">
-              <a href="${b.pr_url || '#'}" target="_blank" style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.75rem; text-decoration: none; margin-right: 0.25rem;">
+              <a href="${b.pr_url || '#'}" target="_blank" style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.75rem; text-decoration: none; margin-right: 0.25rem;" onclick="event.stopPropagation()">
                 PR #${b.pr_number}
               </a>
-              <button class="action-btn btn-approve" onclick="handleApprovePR(${b.pr_id}, this)">Approve</button>
-              <button class="action-btn btn-reject" onclick="handleRejectPR(${b.pr_id}, this)">Reject</button>
+              <button class="action-btn btn-approve" onclick="event.stopPropagation(); handleApprovePR(${b.pr_id}, this)">Approve</button>
+              <button class="action-btn btn-reject" onclick="event.stopPropagation(); handleRejectPR(${b.pr_id}, this)">Reject</button>
             </div>
           `;
         }
@@ -414,7 +414,7 @@ async function loadDashboardBuilds() {
       }
 
       html += `
-        <tr id="build-row-${b.id}">
+        <tr id="build-row-${b.id}" class="clickable-row" onclick="selectBuildForPreview(${b.id}, ${b.pr_number || 'null'}, this)">
           <td style="font-family: var(--font-mono); color: var(--primary); font-weight: 600;">#${b.id}</td>
           <td>${repoShort}</td>
           <td><span style="padding: 0.2rem 0.5rem; background: rgba(99,102,241,0.15); color: #818cf8; border-radius: 4px; font-size: 0.78rem;">${b.branch || 'dev'}</span></td>
@@ -427,6 +427,12 @@ async function loadDashboardBuilds() {
     });
 
     tbody.innerHTML = html;
+
+    // Highlight and show the latest build by default
+    if (builds.length > 0) {
+      const firstRow = document.getElementById(`build-row-${builds[0].id}`);
+      selectBuildForPreview(builds[0].id, builds[0].pr_number, firstRow, false);
+    }
   } catch (err) {
     console.error('Error loading dashboard builds:', err);
     tbody.innerHTML = `
@@ -436,6 +442,45 @@ async function loadDashboardBuilds() {
         </td>
       </tr>
     `;
+  }
+}
+
+// ============================================================================
+// Interactive Build & PR Selection for Gallery and Code Diff
+// ============================================================================
+
+function selectBuildForPreview(buildId, prNumber, rowElem, showFeedback = true) {
+  // Highlight active row in table
+  document.querySelectorAll('.data-table tr.clickable-row').forEach(r => r.classList.remove('selected-build-row'));
+  if (rowElem) {
+    rowElem.classList.add('selected-build-row');
+  } else {
+    const r = document.getElementById(`build-row-${buildId}`);
+    if (r) r.classList.add('selected-build-row');
+  }
+
+  // Update gallery active badge
+  const galleryBadge = document.getElementById('gallery-active-build-badge');
+  if (galleryBadge) {
+    if (prNumber) {
+      galleryBadge.textContent = `PR #${prNumber} (Build #${buildId})`;
+    } else {
+      galleryBadge.textContent = `Build #${buildId}`;
+    }
+  }
+
+  // Update diff active badge
+  const diffBadge = document.getElementById('diff-active-pr-badge');
+  if (diffBadge) {
+    diffBadge.textContent = prNumber ? `PR #${prNumber} Fix` : `Build #${buildId}`;
+  }
+
+  // Re-fetch screenshots and diff
+  loadGalleryScreenshots(buildId);
+  loadLatestDiff();
+
+  if (showFeedback) {
+    showToast(`👁️ Viewing Screenshots & Diff for Build #${buildId}${prNumber ? ` (PR #${prNumber})` : ''}`, 'info');
   }
 }
 
@@ -460,8 +505,8 @@ async function handleApprovePR(prId, btnElement) {
     
     if (res.ok && data.status === 'approved') {
       updatePRRowUI(prId, 'approved');
-      appendConsoleLog(`[PR Decision] ✅ Pull Request #${prId} APPROVED by Admin.`);
-      showToast(`✅ Pull Request #${prId} successfully approved!`, 'success');
+      appendConsoleLog(`[PR Decision] ✅ Pull Request #${prId} APPROVED by Admin (Merged on GitHub).`);
+      showToast(`✅ Pull Request #${prId} approved and merged on GitHub!`, 'success');
     } else {
       throw new Error(data.error || 'Failed to approve pull request');
     }

@@ -619,13 +619,13 @@ def get_dashboard_builds():
 
 
 @app.get("/api/artifacts/screenshots")
-def get_artifact_screenshots():
+def get_artifact_screenshots(build_id: Optional[int] = None):
     """
     Returns public Azure Blob Storage URLs for initial defect and verified post-fix screenshots
     across mobile, tablet, and desktop viewports.
     """
     account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "omnisight")
-    container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "omnisight-artifactss")
+    container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "omnisight-artifacts")
     blob_base = f"https://{account_name}.blob.core.windows.net/{container_name}"
 
     initial_run = "20260820-231012"
@@ -635,21 +635,44 @@ def get_artifact_screenshots():
         from vlm.azure_storage import get_azure_blob_service
         blob_service = get_azure_blob_service()
         if blob_service:
-            container_client = blob_service.get_container_client(container_name)
-            runs = set()
-            for b in container_client.list_blobs():
-                parts = b.name.split("/")
-                if len(parts) > 1 and parts[0] != "output":
-                    runs.add(parts[0])
-            sorted_runs = sorted(list(runs))
-            if len(sorted_runs) >= 2:
-                initial_run = sorted_runs[-2]
-                verified_run = sorted_runs[-1]
-            elif len(sorted_runs) == 1:
-                initial_run = sorted_runs[0]
-                verified_run = sorted_runs[0]
+            # Try specified container, then fallback
+            for target_container in [container_name, "omnisight-artifacts", "omnisight-artifactss"]:
+                try:
+                    container_client = blob_service.get_container_client(target_container)
+                    runs = set()
+                    for b in container_client.list_blobs():
+                        parts = b.name.split("/")
+                        if len(parts) > 1 and parts[0] != "output":
+                            runs.add(parts[0])
+                    sorted_runs = sorted(list(runs))
+                    if sorted_runs:
+                        container_name = target_container
+                        blob_base = f"https://{account_name}.blob.core.windows.net/{container_name}"
+                        if len(sorted_runs) >= 2:
+                            initial_run = sorted_runs[-2]
+                            verified_run = sorted_runs[-1]
+                        else:
+                            initial_run = sorted_runs[0]
+                            verified_run = sorted_runs[0]
+                        break
+                except Exception:
+                    continue
     except Exception as e:
         logger.warning(f"Notice getting blob runs: {e}")
+
+    # Fallback to local output dir if available
+    try:
+        output_dir = BASE_DIR / "output"
+        if output_dir.exists():
+            local_runs = sorted([d.name for d in output_dir.iterdir() if d.is_dir()])
+            if len(local_runs) >= 2:
+                initial_run = local_runs[-2]
+                verified_run = local_runs[-1]
+            elif len(local_runs) == 1:
+                initial_run = local_runs[0]
+                verified_run = local_runs[0]
+    except Exception:
+        pass
 
     return {
         "storage_type": "azure_blob",
