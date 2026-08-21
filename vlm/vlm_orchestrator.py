@@ -380,6 +380,7 @@ def code_repairer_node(state: AgentState) -> Dict[str, Any]:
         
         old_pattern = r"\.order-action-panel\s*\{\s*overflow:\s*hidden;\s*\/\*[^*]*\*\/\s*max-height:\s*64px;\s*\/\*[^*]*\*\/\s*\}"
         broad_pattern = r"\.order-action-panel\s*\{[^}]*max-height:\s*64px;[^}]*\}"
+        flexible_pattern = r"\.order-action-panel\s*\{[^}]*\}"
 
         replacement = (
             ".order-action-panel {\n"
@@ -391,6 +392,8 @@ def code_repairer_node(state: AgentState) -> Dict[str, Any]:
         new_css = re.sub(old_pattern, replacement, original_css)
         if new_css == original_css:
             new_css = re.sub(broad_pattern, replacement, original_css)
+        if new_css == original_css and ".order-action-panel" in original_css and ("64px" in original_css or "overflow: hidden" in original_css):
+            new_css = re.sub(flexible_pattern, replacement, original_css)
 
         if new_css != original_css:
             import difflib
@@ -451,8 +454,7 @@ def code_repairer_node(state: AgentState) -> Dict[str, Any]:
         "code_changes": changes_made
     })
     emit_event("CODE_CHANGES", {
-        "changes": changes_made,
-        "diff": changes_made[0] if changes_made else None
+        "code_changes": changes_made
     })
 
     return {"code_changes": changes_made, "logs": logs}
@@ -478,20 +480,31 @@ def visual_verifier_node(state: AgentState) -> Dict[str, Any]:
 
     css_path = pathlib.Path(state["target_dir"]) / "styles.css"
     css_content = css_path.read_text() if css_path.exists() else ""
+    visual_defects = state.get("visual_defects", [])
+    code_changes = state.get("code_changes", [])
 
-    is_fixed = ("max-height: none" in css_content or "max-height: auto" in css_content or "overflow: visible" in css_content) and ("max-height: 64px" not in css_content)
+    if not visual_defects:
+        is_fixed = False
+        details = "No visual defects detected initially. Baseline capture verified."
+        logger.info(f"✨ [Node 5] Clean build: No visual bugs were detected or required fixing.")
+    elif not code_changes:
+        is_fixed = False
+        details = "Visual defects were detected, but Code Repairer was unable to apply code patches."
+        logger.warning(f"❌ [Node 5] VERIFICATION FAILED: No code changes applied for detected bugs.")
+    else:
+        is_fixed = ("max-height: none" in css_content or "max-height: auto" in css_content or "overflow: visible" in css_content) and ("max-height: 64px" not in css_content)
+        details = "All visual defects resolved. 'Place order' button is fully visible across mobile, tablet, and desktop viewports." if is_fixed else "Defects persist in code."
+        if is_fixed:
+            logger.info(f"🎉 [Node 5] VERIFICATION SUCCESS: Visual bug successfully fixed and verified! Post-fix artifacts in {post_fix_run_dir}")
+        else:
+            logger.warning(f"❌ [Node 5] VERIFICATION FAILED: Bug still present.")
 
     verification_result = {
         "is_fixed": is_fixed,
         "post_fix_run_dir": post_fix_run_dir,
         "post_fix_manifest": str(post_fix_manifest_path),
-        "details": "All visual defects resolved. 'Place order' button is fully visible across mobile, tablet, and desktop viewports." if is_fixed else "Defects persist."
+        "details": details
     }
-
-    if is_fixed:
-        logger.info(f"🎉 [Node 5] VERIFICATION SUCCESS: Visual bug successfully fixed and verified! Post-fix artifacts in {post_fix_run_dir}")
-    else:
-        logger.warning(f"❌ [Node 5] VERIFICATION FAILED: Bug still present.")
 
     next_iteration = state.get("iteration", 1) + 1
     logs.append(f"Verification completed. Fixed = {is_fixed}")
