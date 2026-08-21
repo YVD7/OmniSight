@@ -25,8 +25,9 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Any, Dict, List, Optional
-from typing_extensions import TypedDict
+import urllib.error
+import urllib.request
+from typing import Any, Dict, List, Optional, TypedDict
 
 # LangGraph & dotenv imports
 from dotenv import load_dotenv
@@ -518,8 +519,6 @@ def visual_verifier_node(state: AgentState) -> Dict[str, Any]:
 
 def create_github_pull_request(repo_url: str, github_token: str, head_branch: str, base_branch: str, title: str, body: str):
     """Creates a real GitHub Pull Request using the GitHub REST API."""
-    import re, urllib.request, json
-    
     clean_repo = re.sub(r"\.git$", "", repo_url.replace("https://github.com/", "").replace("git@github.com:", "").strip("/"))
     api_url = f"https://api.github.com/repos/{clean_repo}/pulls"
     
@@ -753,7 +752,7 @@ def should_continue(state: AgentState) -> str:
 
 def build_vlm_orchestration_graph():
     """Constructs and compiles the LangGraph StateGraph workflow."""
-    workflow = StateGraph(AgentState)
+    workflow = StateGraph(AgentState)  # type: ignore[arg-type]
 
     # Add agent nodes
     workflow.add_node("capture_screenshots", capture_screenshots_node)
