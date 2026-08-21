@@ -676,20 +676,6 @@ def get_artifact_screenshots(build_id: Optional[int] = None):
         except Exception as e:
             logger.debug(f"Could not load build screenshot: {e}")
 
-    # Fallback to local output dir if available
-    try:
-        output_dir = BASE_DIR / "output"
-        if output_dir.exists():
-            local_runs = sorted([d.name for d in output_dir.iterdir() if d.is_dir()])
-            if len(local_runs) >= 2:
-                initial_run = local_runs[-2]
-                verified_run = local_runs[-1]
-            elif len(local_runs) == 1:
-                initial_run = local_runs[0]
-                verified_run = local_runs[0]
-    except Exception:
-        pass
-
     return {
         "storage_type": "azure_blob",
         "container": container_name,
