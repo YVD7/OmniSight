@@ -74,8 +74,26 @@ class AgentState(TypedDict):
 
 
 # ============================================================================
-# Helper Functions & Utilities
+# Helper Functions, Live Event Emitter & Utilities
 # ============================================================================
+_event_callback = None
+
+
+def set_event_callback(callback):
+    """Sets a global callback function (event_type: str, data: dict) for real-time live events."""
+    global _event_callback
+    _event_callback = callback
+
+
+def emit_event(event_type: str, data: Dict[str, Any]):
+    """Emits an event to the registered event callback if available."""
+    if _event_callback:
+        try:
+            _event_callback(event_type, data)
+        except Exception as e:
+            logger.debug(f"Event callback error: {e}")
+
+
 def encode_image_base64(image_path: str) -> str:
     """Encodes an image file to base64 string for VLM payload."""
     with open(image_path, "rb") as image_file:
@@ -145,6 +163,12 @@ def capture_screenshots_node(state: AgentState) -> Dict[str, Any]:
     logs = list(state.get("logs", []))
     logs.append(f"Starting screenshot capture (Iteration {state['iteration']})...")
     logger.info(f"📸 [Node 1: Screenshot Capture] Capturing UI screenshots...")
+    emit_event("NODE_STATE", {
+        "node_index": 1,
+        "node": "capture_screenshots",
+        "status": "RUNNING",
+        "iteration": state.get("iteration", 1)
+    })
 
     custom_url = state.get("base_url")
     manifest_path, run_dir, manifest_data, active_url = run_capture_step(
@@ -165,6 +189,19 @@ def capture_screenshots_node(state: AgentState) -> Dict[str, Any]:
     except Exception as azure_err:
         logger.info(f"ℹ️ [Azure Container] Local storage fallback used: {azure_err}")
 
+    emit_event("NODE_STATE", {
+        "node_index": 1,
+        "node": "capture_screenshots",
+        "status": "SUCCESS",
+        "run_dir": run_dir,
+        "screenshots_count": len(manifest_data)
+    })
+    emit_event("SCREENSHOTS", {
+        "phase": "initial",
+        "run_dir": run_dir,
+        "manifest": manifest_data
+    })
+
     return {
         "manifest_path": manifest_path,
         "current_run_dir": run_dir,
@@ -178,6 +215,11 @@ def vlm_visual_inspector_node(state: AgentState) -> Dict[str, Any]:
     logs = list(state.get("logs", []))
     logs.append("VLM Visual Inspector running...")
     logger.info(f"👁️ [Node 2: VLM Visual Inspector] Analyzing screenshots for visual bugs...")
+    emit_event("NODE_STATE", {
+        "node_index": 2,
+        "node": "vlm_visual_inspector",
+        "status": "RUNNING"
+    })
 
     manifest = state.get("screenshots", [])
     output_dir = pathlib.Path(state.get("output_dir", "output"))
@@ -250,6 +292,16 @@ def vlm_visual_inspector_node(state: AgentState) -> Dict[str, Any]:
         logger.info("✨ [Node 2] No visual defects detected in screenshots.")
 
     logs.append(f"Visual inspection completed. Found {len(visual_defects)} defect(s).")
+    emit_event("NODE_STATE", {
+        "node_index": 2,
+        "node": "vlm_visual_inspector",
+        "status": "SUCCESS",
+        "defects_count": len(visual_defects)
+    })
+    emit_event("DEFECTS", {
+        "visual_defects": visual_defects
+    })
+
     return {"visual_defects": visual_defects, "logs": logs}
 
 
@@ -258,12 +310,23 @@ def code_analyzer_node(state: AgentState) -> Dict[str, Any]:
     logs = list(state.get("logs", []))
     logs.append("Code Analyzer Agent analyzing root cause...")
     logger.info(f"🔍 [Node 3: Code Analyzer Agent] Mapping visual defects to source code...")
+    emit_event("NODE_STATE", {
+        "node_index": 3,
+        "node": "code_analyzer",
+        "status": "RUNNING"
+    })
 
     defects = state.get("visual_defects", [])
     target_dir = pathlib.Path(state["target_dir"])
 
     if not defects:
         logger.info("ℹ️ [Node 3] No visual defects to analyze.")
+        emit_event("NODE_STATE", {
+            "node_index": 3,
+            "node": "code_analyzer",
+            "status": "SUCCESS",
+            "root_cause": "No defects found."
+        })
         return {"root_cause_analysis": "No defects found.", "logs": logs}
 
     css_file = target_dir / "styles.css"
@@ -286,6 +349,13 @@ def code_analyzer_node(state: AgentState) -> Dict[str, Any]:
     logger.info(f"📌 [Node 3] Root Cause Analysis:\n{root_cause}")
     logs.append(f"Root cause analyzed:\n{root_cause}")
 
+    emit_event("NODE_STATE", {
+        "node_index": 3,
+        "node": "code_analyzer",
+        "status": "SUCCESS",
+        "root_cause": root_cause
+    })
+
     return {"root_cause_analysis": root_cause, "logs": logs}
 
 
@@ -294,6 +364,11 @@ def code_repairer_node(state: AgentState) -> Dict[str, Any]:
     logs = list(state.get("logs", []))
     logs.append("Code Repairer Agent applying patches...")
     logger.info(f"🛠️ [Node 4: Code Repairer Agent] Applying code fixes to target codebase...")
+    emit_event("NODE_STATE", {
+        "node_index": 4,
+        "node": "code_repairer",
+        "status": "RUNNING"
+    })
 
     target_dir = pathlib.Path(state["target_dir"])
     css_file = target_dir / "styles.css"
@@ -330,6 +405,16 @@ def code_repairer_node(state: AgentState) -> Dict[str, Any]:
             logger.info("⚠️ [Node 4] Pattern match not found in styles.css or fix already applied.")
 
     logs.append(f"Applied {len(changes_made)} code change(s).")
+    emit_event("NODE_STATE", {
+        "node_index": 4,
+        "node": "code_repairer",
+        "status": "SUCCESS",
+        "code_changes": changes_made
+    })
+    emit_event("CODE_CHANGES", {
+        "changes": changes_made
+    })
+
     return {"code_changes": changes_made, "logs": logs}
 
 
@@ -338,6 +423,11 @@ def visual_verifier_node(state: AgentState) -> Dict[str, Any]:
     logs = list(state.get("logs", []))
     logs.append("Visual Verifier Agent re-testing site...")
     logger.info(f"🔄 [Node 5: Visual Verifier Agent] Re-running navigation & screenshot capture for verification...")
+    emit_event("NODE_STATE", {
+        "node_index": 5,
+        "node": "visual_verifier",
+        "status": "RUNNING"
+    })
 
     custom_url = state.get("base_url")
     post_fix_manifest_path, post_fix_run_dir, post_fix_manifest, _ = run_capture_step(
@@ -365,6 +455,20 @@ def visual_verifier_node(state: AgentState) -> Dict[str, Any]:
 
     next_iteration = state.get("iteration", 1) + 1
     logs.append(f"Verification completed. Fixed = {is_fixed}")
+
+    emit_event("NODE_STATE", {
+        "node_index": 5,
+        "node": "visual_verifier",
+        "status": "SUCCESS" if is_fixed else "FAILED",
+        "is_fixed": is_fixed,
+        "post_fix_run_dir": post_fix_run_dir
+    })
+    emit_event("SCREENSHOTS", {
+        "phase": "verified",
+        "run_dir": post_fix_run_dir,
+        "manifest": post_fix_manifest
+    })
+
     return {
         "verification_result": verification_result,
         "is_fixed": is_fixed,
@@ -376,18 +480,41 @@ def visual_verifier_node(state: AgentState) -> Dict[str, Any]:
 def git_pusher_node(state: AgentState) -> Dict[str, Any]:
     """Node 6: Git Pusher Agent committing and pushing modified code to GitHub repository."""
     logs = list(state.get("logs", []))
-    logs.append("Git Pusher Agent preparing commit and push...")
-    logger.info(f"🚀 [Node 6: Git Pusher Agent] Committing and pushing code to GitHub...")
+    logs.append("Git Pusher Agent checking code changes...")
+    logger.info(f"🚀 [Node 6: Git Pusher Agent] Evaluating code changes for GitHub push...")
+    emit_event("NODE_STATE", {
+        "node_index": 6,
+        "node": "git_pusher",
+        "status": "RUNNING"
+    })
 
     target_dir = pathlib.Path(state["target_dir"]).resolve()
     repo_url = state.get("repo_url") or os.getenv("GH_REPO_URL") or os.getenv("GITHUB_REPO_URL")
     github_token = state.get("github_token") or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
     branch = state.get("branch", "dev")
     code_changes = state.get("code_changes", [])
+    is_fixed = state.get("is_fixed", False)
 
-    if not code_changes:
-        logger.info("ℹ️ [Node 6] No code changes to commit/push.")
-        return {"git_result": {"status": "NO_CHANGES"}, "logs": logs}
+    # If NO code changes or fix was not verified, DO NOT push and DO NOT create PR
+    if not code_changes or not is_fixed:
+        logger.info("ℹ️ [Node 6] No code changes detected or verified. Skipping commit/push and PR creation.")
+        logs.append("No code changes to commit/push. PR creation skipped.")
+        git_res = {
+            "status": "NO_CHANGES",
+            "push_status": "NO_CHANGES",
+            "pr_created": False,
+            "branch": branch,
+            "commit_hash": None,
+            "repo_url": repo_url
+        }
+        emit_event("NODE_STATE", {
+            "node_index": 6,
+            "node": "git_pusher",
+            "status": "SKIPPED",
+            "reason": "NO_CHANGES",
+            "git_result": git_res
+        })
+        return {"git_result": git_res, "logs": logs}
 
     def run_git(cmd_list):
         res = subprocess.run(cmd_list, cwd=str(target_dir), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -440,15 +567,28 @@ def git_pusher_node(state: AgentState) -> Dict[str, Any]:
             "commit_hash": commit_hash,
             "commit_message": commit_msg.splitlines()[0],
             "push_status": push_status,
-            "repo_url": repo_url
+            "repo_url": repo_url,
+            "pr_created": True
         }
 
         logs.append(f"Git operation completed. Status: {push_status}, Branch: {branch}, Commit: {commit_hash[:7] if commit_hash else 'N/A'}")
+        emit_event("NODE_STATE", {
+            "node_index": 6,
+            "node": "git_pusher",
+            "status": "SUCCESS",
+            "git_result": git_result
+        })
         return {"git_result": git_result, "logs": logs}
     except Exception as e:
         logger.error(f"❌ [Node 6] Exception during Git operation: {e}")
         logs.append(f"Git error: {e}")
-        return {"git_result": {"status": f"ERROR: {e}"}, "logs": logs}
+        emit_event("NODE_STATE", {
+            "node_index": 6,
+            "node": "git_pusher",
+            "status": "FAILED",
+            "error": str(e)
+        })
+        return {"git_result": {"status": f"ERROR: {e}", "pr_created": False}, "logs": logs}
 
 
 # ============================================================================
@@ -593,10 +733,19 @@ def run_vlm_orchestration(config: Dict[str, Any]) -> Dict[str, Any]:
         "logs": ["Programmatic orchestration initialized."],
     }
 
+    emit_event("RUN_START", {
+        "run_id": initial_state["run_id"],
+        "target_dir": initial_state["target_dir"],
+        "base_url": initial_state["base_url"],
+        "branch": initial_state["branch"],
+        "repo_url": initial_state["repo_url"]
+    })
+
     graph = build_vlm_orchestration_graph()
     final_state = graph.invoke(initial_state)
 
     # Save orchestration results to DB (builds, anomalies, fix_attempts, pull_requests)
+    db_res = {}
     try:
         from api.getway_api import record_orchestration_in_db
         git_res = final_state.get("git_result", {})
@@ -607,7 +756,7 @@ def run_vlm_orchestration(config: Dict[str, Any]) -> Dict[str, Any]:
             commit_sha=git_res.get("commit_hash") or "a8f19c2",
             branch=final_state.get("branch") or "dev",
             staging_url=final_state.get("base_url") or "http://127.0.0.1:9876",
-            status="FIXED" if is_fixed else "FAILED",
+            status="FIXED" if is_fixed else ("CLEAN" if not final_state.get("visual_defects") else "FAILED"),
             visual_defects=final_state.get("visual_defects", []),
             code_changes=final_state.get("code_changes", []),
             iteration=final_state.get("iteration", 1),
@@ -616,6 +765,15 @@ def run_vlm_orchestration(config: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"💾 [DB Persistence] Saved run to database tables: Build #{db_res.get('build_id')}, PR #{db_res.get('pr_number')}")
     except Exception as db_err:
         logger.warning(f"⚠️ [DB Persistence Notice] Could not save to DB: {db_err}")
+
+    emit_event("RUN_COMPLETE", {
+        "run_id": final_state.get("run_id"),
+        "is_fixed": final_state.get("is_fixed", False),
+        "code_changes": final_state.get("code_changes", []),
+        "git_result": final_state.get("git_result", {}),
+        "db_records": db_res,
+        "visual_defects_count": len(final_state.get("visual_defects", []))
+    })
 
     # Automatically delete local target repository directory after orchestration and push finishes
     try:
