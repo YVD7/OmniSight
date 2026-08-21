@@ -20,9 +20,9 @@
     </div>
 
     <div style="display: flex; align-items: center; gap: 1rem;">
-      <div class="status-badge-header">
-        <span class="pulse-dot"></span>
-        GATEWAY API ONLINE
+      <div class="status-badge-header" id="ws-badge-container">
+        <span class="pulse-dot" id="ws-pulse-dot"></span>
+        <span id="ws-status-text">LIVE WS CONNECTING...</span>
       </div>
       <button onclick="refreshDashboardData()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.4rem 0.85rem; border-radius: 8px; font-size: 0.8rem; cursor: pointer; font-weight: 500;">
         🔄 Refresh Status
@@ -283,51 +283,51 @@
 
     <!-- Builds & Pull Requests Status Table -->
     <div class="glass-card" style="padding: 1.5rem;">
-      <div class="panel-title">
+      <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center;">
         <span>📋 Builds & Pull Requests Dashboard</span>
+        <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: normal;" id="builds-count-badge">Loaded from Database</span>
       </div>
 
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Run ID</th>
-            <th>Target Store</th>
-            <th>Branch</th>
-            <th>Status</th>
-            <th>Timestamp</th>
-            <th>Commit SHA</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="table-builds-body">
-          <tr>
-            <td style="font-family: var(--font-mono); color: var(--primary);">20260814-161852</td>
-            <td>trailhead-mock-store</td>
-            <td><span style="padding: 0.2rem 0.5rem; background: rgba(99,102,241,0.15); color: #818cf8; border-radius: 4px; font-size: 0.78rem;">dev</span></td>
-            <td><span style="color: var(--accent-emerald); font-weight: 600;">✅ FIXED</span></td>
-            <td>2026-08-14 16:18:52</td>
-            <td style="font-family: var(--font-mono);">a8f19c2</td>
-            <td>
-              <button class="action-btn btn-approve" onclick="handleApprovePR(1)">Approve PR</button>
-              <button class="action-btn btn-reject" onclick="handleRejectPR(1)">Reject</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div style="overflow-x: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Run / Build ID</th>
+              <th>Target Store / Repo</th>
+              <th>Branch</th>
+              <th>Status</th>
+              <th>Timestamp</th>
+              <th>Commit SHA</th>
+              <th>Pull Request & Actions</th>
+            </tr>
+          </thead>
+          <tbody id="table-builds-body">
+            <tr>
+              <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 2rem;">Loading builds & pull requests...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Live Execution Logs Console -->
     <div class="glass-card" style="padding: 1.5rem;">
-      <div class="panel-title" style="margin-bottom: 0.75rem;">
-        <span>💻 Live Orchestrator Terminal Output Console</span>
+      <div class="panel-title" style="margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+        <span>💻 Live Orchestrator Terminal Output Console (Live WebSocket Stream)</span>
+        <button onclick="clearConsoleLog()" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-dim); padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.72rem; cursor: pointer;">
+          Clear Terminal
+        </button>
       </div>
       <div class="console-box" id="terminal-console">
 [System] OmniSight VLM Orchestrator Gateway API active.
-[System] Ready to run automated visual bug fixes.
+[System] Connecting to live log stream...
       </div>
     </div>
 
   </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
 
   <script src="/static/app.js"></script>
 </body>
