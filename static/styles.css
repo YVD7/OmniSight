@@ -661,14 +661,50 @@ body {
   display: flex;
 }
 
+/* Table Scroll Container - View ~5 latest PRs/Builds with smooth scrolling */
+.table-scroll-container {
+  max-height: 335px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(10, 15, 29, 0.4);
+  margin-top: 0.75rem;
+}
+
+.table-scroll-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-scroll-container::-webkit-scrollbar-track {
+  background: rgba(17, 24, 39, 0.6);
+  border-radius: 4px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 4px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
 /* Table */
 .data-table {
   width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 0;
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #0e1526;
+  backdrop-filter: blur(12px);
   text-align: left;
   padding: 0.85rem 1rem;
   font-size: 0.8rem;
@@ -676,10 +712,11 @@ body {
   color: var(--text-muted);
   text-transform: uppercase;
   border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .data-table td {
-  padding: 1rem;
+  padding: 0.85rem 1rem;
   font-size: 0.85rem;
   border-bottom: 1px solid var(--border-color);
 }
