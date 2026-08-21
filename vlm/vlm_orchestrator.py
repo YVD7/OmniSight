@@ -923,8 +923,11 @@ def run_vlm_orchestration(config: Dict[str, Any]) -> Dict[str, Any]:
             visual_defects=final_state.get("visual_defects", []),
             code_changes=final_state.get("code_changes", []),
             iteration=final_state.get("iteration", 1),
-            is_fixed=is_fixed
+            is_fixed=is_fixed,
+            real_pr_number=git_res.get("pr_number"),
+            real_pr_url=git_res.get("pr_url")
         )
+        final_state["db_records"] = db_res
         logger.info(f"💾 [DB Persistence] Saved run to database tables: Build #{db_res.get('build_id')}, PR #{db_res.get('pr_number')}")
     except Exception as db_err:
         logger.warning(f"⚠️ [DB Persistence Notice] Could not save to DB: {db_err}")
