@@ -650,9 +650,19 @@ def git_pusher_node(state: AgentState) -> Dict[str, Any]:
                             shutil.copy2(src_f, dst_f)
                             logger.info(f"  Copied repaired file: {rel_file} into fix branch")
 
+                    # Configure git identity in temporary workspace
+                    subprocess.run(["git", "config", "user.name", "OmniSight VLM Automated Repair"], cwd=tmpdir, check=True)
+                    subprocess.run(["git", "config", "user.email", "bot@omnisight.ai"], cwd=tmpdir, check=True)
+
                     # Stage & commit
                     subprocess.run(["git", "add", "."], cwd=tmpdir, check=True)
-                    subprocess.run(["git", "commit", "-m", commit_msg], cwd=tmpdir, check=True)
+                    diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=tmpdir)
+                    if diff_check.returncode != 0:
+                        subprocess.run(["git", "commit", "-m", commit_msg], cwd=tmpdir, check=True)
+                    else:
+                        logger.info("ℹ️ Repaired files identical to base branch; committing with --allow-empty")
+                        subprocess.run(["git", "commit", "--allow-empty", "-m", commit_msg], cwd=tmpdir, check=True)
+
                     commit_proc = subprocess.run(["git", "rev-parse", "HEAD"], cwd=tmpdir, stdout=subprocess.PIPE, text=True)
                     commit_hash = commit_proc.stdout.strip()
 
