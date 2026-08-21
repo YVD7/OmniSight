@@ -477,7 +477,7 @@ function selectBuildForPreview(buildId, prNumber, rowElem, showFeedback = true) 
 
   // Re-fetch screenshots and diff
   loadGalleryScreenshots(buildId);
-  loadLatestDiff();
+  loadLatestDiff(buildId);
 
   if (showFeedback) {
     showToast(`👁️ Viewing Screenshots & Diff for Build #${buildId}${prNumber ? ` (PR #${prNumber})` : ''}`, 'info');
@@ -650,7 +650,7 @@ async function loadGalleryScreenshots(buildId = null) {
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
-      screenshotData = data.screenshots;
+      screenshotData = data;
       updateScreenshotGalleryImages();
     }
   } catch (err) {
@@ -673,8 +673,8 @@ function updateScreenshotGalleryImages() {
   const initialImg = document.getElementById('img-initial-shot');
   const verifiedImg = document.getElementById('img-verified-shot');
 
-  const fallbackInitial = `https://omnisight.blob.core.windows.net/omnisight-artifacts/20260821-121744/${currentViewport}_05_place_order.png`;
-  const fallbackVerified = `https://omnisight.blob.core.windows.net/omnisight-artifacts/20260821-122030/${currentViewport}_05_place_order.png`;
+  const fallbackInitial = `https://omnisight.blob.core.windows.net/omnisight-artifacts/20260821-122030/${currentViewport}_05_place_order.png`;
+  const fallbackVerified = `https://omnisight.blob.core.windows.net/omnisight-artifacts/20260821-123037/${currentViewport}_05_place_order.png`;
 
   if (initialImg) {
     initialImg.onerror = function() {
@@ -682,8 +682,8 @@ function updateScreenshotGalleryImages() {
         this.src = fallbackInitial;
       }
     };
-    if (screenshotData && screenshotData.initial && screenshotData.initial[currentViewport]) {
-      initialImg.src = screenshotData.initial[currentViewport];
+    if (screenshotData && screenshotData.screenshots && screenshotData.screenshots.initial && screenshotData.screenshots.initial[currentViewport]) {
+      initialImg.src = screenshotData.screenshots.initial[currentViewport];
     } else {
       initialImg.src = fallbackInitial;
     }
@@ -695,8 +695,8 @@ function updateScreenshotGalleryImages() {
         this.src = fallbackVerified;
       }
     };
-    if (screenshotData && screenshotData.verified && screenshotData.verified[currentViewport]) {
-      verifiedImg.src = screenshotData.verified[currentViewport];
+    if (screenshotData && screenshotData.screenshots && screenshotData.screenshots.verified && screenshotData.screenshots.verified[currentViewport]) {
+      verifiedImg.src = screenshotData.screenshots.verified[currentViewport];
     } else {
       verifiedImg.src = fallbackVerified;
     }
@@ -743,6 +743,27 @@ function renderGitHubDiff(diffData) {
     container.innerHTML = `
       <div style="padding: 1.5rem; text-align: center; color: #8b949e; font-size: 13px;">
         No code changes applied yet. Trigger a run or push from mock-app to see live diff comparison.
+      </div>
+    `;
+    return;
+  }
+
+  // Handle Clean Builds (No Code Changes Needed)
+  if (diffData.no_changes || diffData.status === 'CLEAN') {
+    if (fileNameElem) fileNameElem.textContent = 'styles.css (Clean Layout)';
+    if (statAddElem) statAddElem.textContent = '0';
+    if (statDelElem) statDelElem.textContent = '0';
+    if (descLabel) descLabel.textContent = 'Clean Layout';
+
+    container.innerHTML = `
+      <div style="padding: 2.5rem 1.5rem; text-align: center; color: #c9d1d9;">
+        <div style="font-size: 2.2rem; margin-bottom: 0.6rem;">✨</div>
+        <div style="font-size: 1.05rem; font-weight: 600; color: #58a6ff;">
+          Build #${diffData.build_id || ''} — No Code Changes Required
+        </div>
+        <div style="font-size: 0.85rem; color: #8b949e; margin-top: 0.4rem; max-width: 520px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+          All visual layout assertions passed cleanly across Desktop, Tablet, and Mobile viewports. No clipping or overlapping defects were detected.
+        </div>
       </div>
     `;
     return;

@@ -622,28 +622,27 @@ def get_dashboard_builds():
 def get_artifact_screenshots(build_id: Optional[int] = None):
     """
     Returns public Azure Blob Storage URLs for initial defect and verified post-fix screenshots
-    across mobile, tablet, and desktop viewports.
+    across mobile, tablet, and desktop viewports for a specific build or the latest build.
     """
     account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "omnisight")
     container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "omnisight-artifacts")
     blob_base = f"https://{account_name}.blob.core.windows.net/{container_name}"
 
     # Default verified and initial runs
-    initial_run = "20260821-121744"
-    verified_run = "20260821-122030"
+    initial_run = "20260821-122030"
+    verified_run = "20260821-123037"
+    build_status = "FIXED"
 
     try:
         from vlm.azure_storage import get_azure_blob_service
         blob_service = get_azure_blob_service()
         if blob_service:
-            # Try specified container, then fallback
             for target_container in [container_name, "omnisight-artifacts", "omnisight-artifactss"]:
                 try:
                     container_client = blob_service.get_container_client(target_container)
                     runs = set()
                     for b in container_client.list_blobs():
                         parts = b.name.split("/")
-                        # ONLY accept runs that actually have complete place_order screenshots!
                         if len(parts) > 1 and parts[0] != "output" and "05_place_order.png" in b.name:
                             runs.add(parts[0])
                     sorted_runs = sorted(list(runs))
@@ -662,23 +661,33 @@ def get_artifact_screenshots(build_id: Optional[int] = None):
     except Exception as e:
         logger.warning(f"Notice getting blob runs: {e}")
 
-    # If build_id provided, check database for build specific screenshot
+    # If build_id provided, query database for build-specific status and screenshot paths
     if build_id:
         try:
             from sqlalchemy import text
             engine, _ = get_db_engine()
             with engine.connect() as conn:
-                res = conn.execute(text("SELECT screenshot_path FROM anomalies WHERE build_id=:bid ORDER BY id ASC LIMIT 1"), {"bid": build_id}).fetchone()
-                if res and res[0] and "http" in res[0]:
-                    parts = res[0].split("/")
-                    if len(parts) >= 2:
-                        initial_run = parts[-2]
+                res = conn.execute(
+                    text("SELECT b.status, a.screenshot_path FROM builds b LEFT JOIN anomalies a ON a.build_id = b.id WHERE b.id=:bid ORDER BY a.id ASC LIMIT 1"),
+                    {"bid": build_id}
+                ).fetchone()
+                if res:
+                    build_status = res[0] or "FIXED"
+                    shot_path = res[1]
+                    if shot_path and "http" in shot_path:
+                        parts = shot_path.split("/")
+                        if len(parts) >= 2:
+                            initial_run = parts[-2]
+                            if build_status == "CLEAN":
+                                verified_run = initial_run
         except Exception as e:
-            logger.debug(f"Could not load build screenshot: {e}")
+            logger.debug(f"Could not load build screenshot from DB: {e}")
 
     return {
         "storage_type": "azure_blob",
         "container": container_name,
+        "build_id": build_id,
+        "build_status": build_status,
         "initial_run": initial_run,
         "verified_run": verified_run,
         "screenshots": {
@@ -698,8 +707,40 @@ def get_artifact_screenshots(build_id: Optional[int] = None):
 
 @app.get("/api/diff/latest")
 def get_latest_code_diff(build_id: Optional[int] = None):
-    """Returns the latest applied code repair diff in GitHub-compatible format."""
+    """Returns the code repair diff in GitHub-compatible format for a specific build or latest."""
+    build_status = "FIXED"
+    if build_id:
+        try:
+            from sqlalchemy import text
+            engine, _ = get_db_engine()
+            with engine.connect() as conn:
+                res = conn.execute(text("SELECT status FROM builds WHERE id=:bid"), {"bid": build_id}).fetchone()
+                if res and res[0] == "CLEAN":
+                    return {
+                        "build_id": build_id,
+                        "status": "CLEAN",
+                        "no_changes": True,
+                        "message": f"Build #{build_id} passed all visual checks cleanly across all viewports. No code modifications needed.",
+                        "file": "styles.css",
+                        "path": "trailhead-mock-store/styles.css",
+                        "repo": "mock-app",
+                        "action": "NO_CHANGES_REQUIRED",
+                        "selector": "clean-layout",
+                        "additions": 0,
+                        "deletions": 0,
+                        "hunk_header": "Clean Layout",
+                        "unified_diff": "",
+                        "unified_lines": [],
+                        "split_lines": {"left": [], "right": []}
+                    }
+        except Exception as e:
+            logger.debug(f"Could not query build status for diff: {e}")
+
+    # Build repair diff payload
     return {
+        "build_id": build_id,
+        "status": "FIXED",
+        "no_changes": False,
         "file": "styles.css",
         "path": "trailhead-mock-store/styles.css",
         "repo": "mock-app",
