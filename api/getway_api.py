@@ -412,30 +412,30 @@ def trigger_orchestration(req: OrchestrationRequest):
         code_changes = final_state.get("code_changes", [])
         visual_defects = final_state.get("visual_defects", [])
         
-        repo_val = req.repo_url or final_state.get("repo_url") or "trailhead-mock-store"
-        commit_val = git_res.get("commit_hash") or "a8f19c2"
-        branch_val = req.branch or "dev"
-        staging_val = req.base_url or final_state.get("base_url") or "http://127.0.0.1:9876"
-        status_val = "FIXED" if is_fixed else ("CLEAN" if not visual_defects else "FAILED")
+        # Use database records created by the orchestrator run (avoiding double insertion)
+        db_records = final_state.get("db_records")
+        if not db_records:
+            repo_val = req.repo_url or final_state.get("repo_url") or "trailhead-mock-store"
+            commit_val = git_res.get("commit_hash") or "a8f19c2"
+            branch_val = req.branch or "dev"
+            staging_val = req.base_url or final_state.get("base_url") or "http://127.0.0.1:9876"
+            status_val = "FIXED" if is_fixed else ("CLEAN" if not visual_defects else "FAILED")
+            real_pr_num = git_res.get("pr_number")
+            real_pr_url = git_res.get("pr_url")
 
-        git_res = final_state.get("git_result", {})
-        real_pr_num = git_res.get("pr_number")
-        real_pr_url = git_res.get("pr_url")
-
-        # Record in Database tables matching db/create_table.txt
-        db_records = record_orchestration_in_db(
-            repo=repo_val,
-            commit_sha=commit_val,
-            branch=branch_val,
-            staging_url=staging_val,
-            status=status_val,
-            visual_defects=visual_defects,
-            code_changes=code_changes,
-            iteration=final_state.get("iteration", 1),
-            is_fixed=is_fixed,
-            real_pr_number=real_pr_num,
-            real_pr_url=real_pr_url
-        )
+            db_records = record_orchestration_in_db(
+                repo=repo_val,
+                commit_sha=commit_val,
+                branch=branch_val,
+                staging_url=staging_val,
+                status=status_val,
+                visual_defects=visual_defects,
+                code_changes=code_changes,
+                iteration=final_state.get("iteration", 1),
+                is_fixed=is_fixed,
+                real_pr_number=real_pr_num,
+                real_pr_url=real_pr_url
+            )
 
         has_pr = db_records.get("pr_number") is not None
 
