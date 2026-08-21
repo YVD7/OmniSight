@@ -155,7 +155,7 @@ function handleRunStart(data) {
   
   // Reset pipeline node states
   for (let i = 1; i <= 6; i++) {
-    setPipelineStepStatus(`step-node-1`, `badge-node-1`, 'IDLE', 'badge-idle');
+    setPipelineStepStatus(`step-node-${i}`, `badge-node-${i}`, 'IDLE', 'badge-idle');
   }
   
   const overallBadge = document.getElementById('overall-status-badge');
