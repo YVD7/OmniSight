@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OmniSight - VLM Agent Status Update & Orchestrator Dashboard</title>
-  <link rel="stylesheet" href="/static/styles.css?v=1.2.0">
+  <link rel="stylesheet" href="/static/styles.css?v=1.3.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👁️</text></svg>">
 </head>
 <body>
@@ -240,7 +240,7 @@
             <span style="font-size: 0.75rem; padding: 0.2rem 0.5rem; background: rgba(244,63,94,0.15); color: var(--accent-rose); border-radius: 4px;">Clipped Button</span>
           </div>
           <div class="image-container" id="container-initial-shot">
-            <img id="img-initial-shot" src="/output/20260814-161836/mobile_05_place_order.png" alt="Initial UI defect screenshot" onerror="this.src='https://placehold.co/600x400/0f172a/94a3b8?text=Mobile+UI+Screenshot';">
+            <img id="img-initial-shot" src="https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231012/mobile_05_place_order.png" alt="Initial UI defect screenshot" onerror="this.src='/output/20260820-231012/mobile_05_place_order.png';">
           </div>
           <div style="font-size: 0.78rem; color: var(--text-muted);" id="defect-desc-text">
             <strong>Defect:</strong> The 'Place order' button is clipped and hidden inside <code>.order-action-panel</code> due to <code>max-height: 64px</code> & <code>overflow: hidden</code>.
@@ -254,7 +254,7 @@
             <span style="font-size: 0.75rem; padding: 0.2rem 0.5rem; background: rgba(16,185,129,0.15); color: var(--accent-emerald); border-radius: 4px;">Verified Unclipped</span>
           </div>
           <div class="image-container" id="container-verified-shot">
-            <img id="img-verified-shot" src="/output/20260814-161852/mobile_05_place_order.png" alt="Verified UI screenshot" onerror="this.src='https://placehold.co/600x400/0f172a/10b981?text=Verified+Mobile+UI';">
+            <img id="img-verified-shot" src="https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231035/mobile_05_place_order.png" alt="Verified UI screenshot" onerror="this.src='/output/20260820-231035/mobile_05_place_order.png';">
           </div>
           <div style="font-size: 0.78rem; color: var(--accent-emerald);" id="verified-desc-text">
             <strong>Result:</strong> Container height expands naturally. 'Place order' button is 100% visible and clickable across all viewports.
@@ -329,6 +329,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="/static/app.js?v=1.2.0"></script>
+  <script src="/static/app.js?v=1.3.0"></script>
 </body>
 </html>

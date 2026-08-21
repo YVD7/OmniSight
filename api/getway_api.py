@@ -612,6 +612,59 @@ def get_dashboard_builds():
         return {"builds": [], "error": str(e)}
 
 
+@app.get("/api/artifacts/screenshots")
+def get_artifact_screenshots():
+    """
+    Returns public Azure Blob Storage URLs for initial defect and verified post-fix screenshots
+    across mobile, tablet, and desktop viewports.
+    """
+    account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "omnisight")
+    container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "omnisight-artifactss")
+    blob_base = f"https://{account_name}.blob.core.windows.net/{container_name}"
+
+    initial_run = "20260820-231012"
+    verified_run = "20260820-231035"
+
+    try:
+        from vlm.azure_storage import get_azure_blob_service
+        blob_service = get_azure_blob_service()
+        if blob_service:
+            container_client = blob_service.get_container_client(container_name)
+            runs = set()
+            for b in container_client.list_blobs():
+                parts = b.name.split("/")
+                if len(parts) > 1 and parts[0] != "output":
+                    runs.add(parts[0])
+            sorted_runs = sorted(list(runs))
+            if len(sorted_runs) >= 2:
+                initial_run = sorted_runs[-2]
+                verified_run = sorted_runs[-1]
+            elif len(sorted_runs) == 1:
+                initial_run = sorted_runs[0]
+                verified_run = sorted_runs[0]
+    except Exception as e:
+        logger.warning(f"Notice getting blob runs: {e}")
+
+    return {
+        "storage_type": "azure_blob",
+        "container": container_name,
+        "initial_run": initial_run,
+        "verified_run": verified_run,
+        "screenshots": {
+            "initial": {
+                "mobile": f"{blob_base}/{initial_run}/mobile_05_place_order.png",
+                "tablet": f"{blob_base}/{initial_run}/tablet_05_place_order.png",
+                "desktop": f"{blob_base}/{initial_run}/desktop_05_place_order.png"
+            },
+            "verified": {
+                "mobile": f"{blob_base}/{verified_run}/mobile_05_place_order.png",
+                "tablet": f"{blob_base}/{verified_run}/tablet_05_place_order.png",
+                "desktop": f"{blob_base}/{verified_run}/desktop_05_place_order.png"
+            }
+        }
+    }
+
+
 @app.get("/builds")
 def get_builds():
     """Returns list of all builds from the database."""

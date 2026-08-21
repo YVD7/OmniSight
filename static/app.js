@@ -7,12 +7,12 @@ let currentViewport = 'mobile';
 let latestRunResult = null;
 let ws = null;
 let wsReconnectTimer = null;
-let activeRunDirInitial = null;
-let activeRunDirVerified = null;
+let screenshotData = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   fetchSystemStatus();
   loadDashboardBuilds();
+  loadGalleryScreenshots();
   initWebSocket();
 });
 
@@ -194,11 +194,19 @@ function handleScreenshotUpdate(data) {
 
   const runFolderName = run_dir.split('/').pop().split('\\').pop();
 
-  if (phase === 'initial') {
-    activeRunDirInitial = runFolderName;
-  } else if (phase === 'verified') {
-    activeRunDirVerified = runFolderName;
+  if (!screenshotData) {
+    screenshotData = { initial: {}, verified: {} };
   }
+
+  const viewports = ['mobile', 'tablet', 'desktop'];
+  viewports.forEach(vp => {
+    const blobUrl = `https://omnisight.blob.core.windows.net/omnisight-artifactss/${runFolderName}/${vp}_05_place_order.png`;
+    if (phase === 'initial') {
+      screenshotData.initial[vp] = blobUrl;
+    } else if (phase === 'verified') {
+      screenshotData.verified[vp] = blobUrl;
+    }
+  });
 
   updateScreenshotGalleryImages();
 }
@@ -579,8 +587,21 @@ function setPipelineStepStatus(stepId, badgeId, text, className) {
 }
 
 // ============================================================================
-// Screenshot Viewer Gallery
+// Screenshot Viewer Gallery (Azure Blob Storage Integration)
 // ============================================================================
+
+async function loadGalleryScreenshots() {
+  try {
+    const res = await fetch('/api/artifacts/screenshots');
+    if (res.ok) {
+      const data = await res.json();
+      screenshotData = data.screenshots;
+      updateScreenshotGalleryImages();
+    }
+  } catch (err) {
+    console.warn("Could not load gallery screenshots from backend:", err);
+  }
+}
 
 function switchViewportTab(viewport) {
   currentViewport = viewport;
@@ -597,15 +618,22 @@ function updateScreenshotGalleryImages() {
   const initialImg = document.getElementById('img-initial-shot');
   const verifiedImg = document.getElementById('img-verified-shot');
 
-  const initialDir = activeRunDirInitial || '20260814-161836';
-  const verifiedDir = activeRunDirVerified || '20260814-161852';
+  if (screenshotData) {
+    if (initialImg && screenshotData.initial && screenshotData.initial[currentViewport]) {
+      initialImg.src = screenshotData.initial[currentViewport];
+    }
+    if (verifiedImg && screenshotData.verified && screenshotData.verified[currentViewport]) {
+      verifiedImg.src = screenshotData.verified[currentViewport];
+    }
+    return;
+  }
 
-  if (initialImg) {
-    initialImg.src = `/output/${initialDir}/${currentViewport}_05_place_order.png`;
-  }
-  if (verifiedImg) {
-    verifiedImg.src = `/output/${verifiedDir}/${currentViewport}_05_place_order.png`;
-  }
+  // Direct fallback to Azure Blob URLs
+  const initialBlob = `https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231012/${currentViewport}_05_place_order.png`;
+  const verifiedBlob = `https://omnisight.blob.core.windows.net/omnisight-artifactss/20260820-231035/${currentViewport}_05_place_order.png`;
+
+  if (initialImg) initialImg.src = initialBlob;
+  if (verifiedImg) verifiedImg.src = verifiedBlob;
 }
 
 // ============================================================================
